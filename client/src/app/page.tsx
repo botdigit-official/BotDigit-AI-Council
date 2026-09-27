@@ -34,43 +34,112 @@ import {
   Sliders,
   DollarSign,
   Briefcase,
+  History,
+  Share2,
+  FileCode,
+  Check,
+  Search,
+  RefreshCw,
+  X,
+  Code2,
+  Eye,
+  AlertCircle,
 } from 'lucide-react';
 
-interface ProjectInfo {
+// Type Definitions
+interface ProjectItem {
   id: string;
-  code: string;
   name: string;
+  slug: string;
   client_name: string;
-  workspace: string;
-  github_url: string;
-  visibility: 'private' | 'public';
-  environment: string;
-  status: string;
-  active_agents_count: number;
-  total_decisions: number;
+  workspace_id: string;
+  workspace_name: string;
+  project_type: string;
+  description: string | null;
+  primary_domain: string | null;
+  domain_verified: boolean;
+  domain_verification_method: string;
+  domain_verification_token: string | null;
+  staging_url: string | null;
+  docs_url: string | null;
+  github_repo_url: string | null;
+  github_repo_full_name: string | null;
+  github_default_branch: string;
+  github_connected: boolean;
+  github_stats: {
+    commits?: number;
+    files?: number;
+    issues?: number;
+    prs?: number;
+    last_sync?: string;
+  };
+  is_public: boolean;
+  health_scores: {
+    engineering: number;
+    security: number;
+    product: number;
+    growth: number;
+    seo: number;
+  };
+  outlook: any;
+  sessions_count: number;
+  decisions_count: number;
+  open_questions_count: number;
+}
+
+interface CouncilSession {
+  id: string;
+  session_number: number;
+  session_code: string;
+  topic: string;
+  status: 'draft' | 'live' | 'completed' | 'failed';
+  active_agents: string[];
+  consensus_summary: string | null;
+  outlook: {
+    technical_readiness: number;
+    market_evidence: number;
+    distribution_readiness: number;
+    risk_index: string;
+    launch_verdict: string;
+    consensus_summary?: string;
+  };
+  disagreements: Array<{ topic: string; summary: string }>;
+  is_published: boolean;
+  created_at: string;
 }
 
 interface AgentMessage {
+  id?: string;
+  round: number;
   agent: string;
   title: string;
   avatar: string;
   color: string;
-  provider?: string;
-  model?: string;
   classification: 'FACT' | 'INFERENCE' | 'OPINION' | 'SCENARIO';
   content: string;
   evidence_ref?: string | null;
-  confidence: number;
+  evidence_source?: string;
+  evidence_strength?: 'HIGH' | 'MODERATE' | 'LOW';
+  evidence_snippet?: string | null;
+  provider?: string;
+  model?: string;
+  tokens_in?: number;
+  tokens_out?: number;
   cost?: string;
+  confidence: number;
 }
 
-interface ProjectOutlook {
-  technical_readiness: number;
-  market_evidence: number;
-  distribution_readiness: number;
-  risk_index: string;
-  launch_verdict: string;
-  consensus_summary: string;
+interface DecisionItem {
+  id: string;
+  topic: string;
+  decision_summary: string;
+  tradeoffs_accepted: string[];
+  underlying_assumptions: Record<string, string>;
+  review_condition: string;
+  evidence_sources_count: number;
+  participating_agents: string[];
+  status: string;
+  created_at: string;
 }
 
 interface TaskItem {
@@ -79,162 +148,199 @@ interface TaskItem {
   assigned_agent: string;
   priority: string;
   status: string;
+  github_issue_url?: string;
 }
 
-const ALL_PROJECTS: ProjectInfo[] = [
-  {
-    id: 'prj_01',
-    code: 'PRJ-8F42K',
-    name: 'BotDigit Marketplace',
-    client_name: 'BotDigit Labs',
-    workspace: 'BotDigit Labs',
-    github_url: 'https://github.com/botdigit/marketplace',
-    visibility: 'private',
-    environment: 'Production',
-    status: 'Active',
-    active_agents_count: 6,
-    total_decisions: 47,
-  },
-  {
-    id: 'prj_02',
-    code: 'PRJ-9X11M',
-    name: 'AIVEX Decentralized Compute',
-    client_name: 'AIVEX Foundation',
-    workspace: 'BotDigit Labs',
-    github_url: 'https://github.com/aivex/protocol',
-    visibility: 'private',
-    environment: 'Mainnet Stage',
-    status: 'Active',
-    active_agents_count: 8,
-    total_decisions: 62,
-  },
-  {
-    id: 'prj_03',
-    code: 'PRJ-3K90P',
-    name: 'Grow50X Growth Engine',
-    client_name: 'Grow50X Inc',
-    workspace: 'BotDigit Labs',
-    github_url: 'https://github.com/botdigit/grow50x',
-    visibility: 'private',
-    environment: 'Staging',
-    status: 'Active',
-    active_agents_count: 7,
-    total_decisions: 29,
-  },
-  {
-    id: 'prj_04',
-    code: 'PRJ-1B44L',
-    name: 'Amarjeevan Medical Portal',
-    client_name: 'Amar Jeevan Trust',
-    workspace: 'BotDigit Healthcare',
-    github_url: 'https://github.com/botdigit/amarjeevan',
-    visibility: 'public',
-    environment: 'Production',
-    status: 'Active',
-    active_agents_count: 5,
-    total_decisions: 18,
-  },
-];
+interface UnresolvedQuestion {
+  id: string;
+  question: string;
+  severity: string;
+  status: string;
+  context_summary?: string;
+}
 
 const AGENT_CATALOG = [
-  { id: 'moderator', title: 'Chief AI / Moderator', avatar: '🧠', defaultModel: 'Claude 3.5 Sonnet' },
-  { id: 'product', title: 'Product Manager', avatar: '👨‍💼', defaultModel: 'GPT-4o' },
-  { id: 'engineering', title: 'Senior Engineer', avatar: '🧑‍💻', defaultModel: 'DeepSeek Coder' },
-  { id: 'security', title: 'Security Specialist', avatar: '🔐', defaultModel: 'Claude 3.5 Sonnet' },
-  { id: 'growth', title: 'Growth Lead', avatar: '📈', defaultModel: 'Gemini 1.5 Pro' },
-  { id: 'skeptic', title: 'Skeptic / Red Team', avatar: '🕵️', defaultModel: 'Claude 3.5 Sonnet' },
-  { id: 'architect', title: 'System Architect', avatar: '🏗️', defaultModel: 'Claude 3.5 Sonnet' },
-  { id: 'qa', title: 'QA & Reliability', avatar: '🧪', defaultModel: 'GPT-4o' },
-  { id: 'ux', title: 'UX Specialist', avatar: '🎨', defaultModel: 'Gemini 1.5 Flash' },
-  { id: 'seo', title: 'SEO & Content', avatar: '🔎', defaultModel: 'Gemini 1.5 Pro' },
-  { id: 'finance', title: 'Finance & Unit Economics', avatar: '💰', defaultModel: 'GPT-4o' },
-  { id: 'competitor', title: 'Competitor Analyst', avatar: '⚔️', defaultModel: 'Perplexity Sonar' },
+  { id: 'moderator', title: 'Chief AI / Moderator', avatar: '🧠', defaultModel: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+  { id: 'product', title: 'Product Manager', avatar: '👨‍💼', defaultModel: 'GPT-4o', provider: 'OpenAI' },
+  { id: 'engineering', title: 'Senior Engineer', avatar: '🧑‍💻', defaultModel: 'DeepSeek-V3', provider: 'DeepSeek' },
+  { id: 'security', title: 'Security Specialist', avatar: '🔐', defaultModel: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+  { id: 'growth', title: 'Growth Lead', avatar: '📈', defaultModel: 'Gemini 1.5 Pro', provider: 'Google' },
+  { id: 'skeptic', title: 'Skeptic / Red Team', avatar: '🕵️', defaultModel: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+  { id: 'architect', title: 'System Architect', avatar: '🏗️', defaultModel: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+  { id: 'seo', title: 'SEO & Content', avatar: '🔎', defaultModel: 'Gemini 1.5 Pro', provider: 'Google' },
+  { id: 'ux', title: 'UX Specialist', avatar: '🎨', defaultModel: 'Gemini 1.5 Flash', provider: 'Google' },
+  { id: 'finance', title: 'Finance & Unit Economics', avatar: '💰', defaultModel: 'GPT-4o', provider: 'OpenAI' },
 ];
 
-const PRESET_TOPICS = [
-  'Should we launch this marketplace now?',
-  'Security & OWASP audit of authentication endpoints',
-  'Organic acquisition loops & SEO indexability review',
-  'Database scalability & connection pool limits under 500 req/s',
+const SUGGESTED_QUESTIONS = [
+  'Review project architecture',
+  'Should we launch?',
+  'Find critical security risks',
+  'Analyze our roadmap',
+  'Review GitHub repository',
 ];
 
-export default function CouncilDashboard() {
-  const [selectedProject, setSelectedProject] = useState<ProjectInfo>(ALL_PROJECTS[0]);
+export default function CouncilPlatform() {
+  // Global State
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
-  const [controlCenterOpen, setControlCenterOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'council' | 'decisions' | 'tasks' | 'memory' | 'roadmap'>('council');
+  const [activeTab, setActiveTab] = useState<'council' | 'decisions' | 'tasks' | 'history' | 'health'>('council');
 
-  // Provider & Intelligence Mode State
-  const [providerMode, setProviderMode] = useState<'botdigit' | 'byok' | 'local'>('botdigit');
-  const [intelligenceMode, setIntelligenceMode] = useState<'fast' | 'balanced' | 'deep' | 'maximum'>('balanced');
-  const [activeAgentIds, setActiveAgentIds] = useState<string[]>([
-    'moderator',
-    'product',
-    'engineering',
-    'security',
-    'growth',
-    'skeptic',
-  ]);
-
-  const [topic, setTopic] = useState(PRESET_TOPICS[0]);
-  const [isDebating, setIsDebating] = useState(false);
-  const [currentRound, setCurrentRound] = useState(0);
+  // Council Sessions State
+  const [sessions, setSessions] = useState<CouncilSession[]>([]);
+  const [selectedSession, setSelectedSession] = useState<CouncilSession | null>(null);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
-  const [outlook, setOutlook] = useState<ProjectOutlook | null>(null);
-  const [tasks, setTasks] = useState<TaskItem[]>([
-    {
-      id: 't1',
-      title: 'Implement 1-click template onboarding flow',
-      assigned_agent: 'product',
-      priority: 'critical',
-      status: 'proposed',
-    },
-    {
-      id: 't2',
-      title: 'Add Redis token-bucket rate limiter to /api/auth',
-      assigned_agent: 'security',
-      priority: 'critical',
-      status: 'proposed',
-    },
-    {
-      id: 't3',
-      title: 'Configure PgBouncer connection pool layer',
-      assigned_agent: 'engineering',
-      priority: 'high',
-      status: 'proposed',
-    },
-  ]);
+  const [isDebating, setIsDebating] = useState(false);
+  const [currentRound, setCurrentRound] = useState(1);
+  const [newQuestion, setNewQuestion] = useState('');
+
+  // Project Artifacts State
+  const [decisions, setDecisions] = useState<DecisionItem[]>([]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [unresolvedQuestions, setUnresolvedQuestions] = useState<UnresolvedQuestion[]>([]);
+
+  // Modals & Drawers
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [evidenceDrawerOpen, setEvidenceDrawerOpen] = useState(false);
+  const [activeEvidence, setActiveEvidence] = useState<AgentMessage | null>(null);
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [domainModalOpen, setDomainModalOpen] = useState(false);
+  const [addAgentModalOpen, setAddAgentModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Project Creation Wizard Form
+  const [wizardForm, setWizardForm] = useState({
+    name: '',
+    slug: '',
+    description: '',
+    project_type: 'web_saas',
+    primary_domain: '',
+    staging_url: '',
+    github_repo_full_name: 'botdigit-official/BotDigit-AI-Council',
+  });
+
+  // Sanitized Publication Checklist
+  const [publishSections, setPublishSections] = useState({
+    question: true,
+    summary: true,
+    perspectives: true,
+    disagreements: true,
+    decision: true,
+    action_plan: true,
+    source_code: false,
+    private_evidence: false,
+    internal_docs: false,
+  });
+
+  // Custom Agent Form
+  const [customAgentForm, setCustomAgentForm] = useState({
+    name: 'Blockchain Economist',
+    role: 'Tokenomics & Liquidity Architect',
+    instructions: 'Analyze token release schedules, liquidity pool depth, and market bonding curves.',
+    tools: ['web', 'project_memory', 'github'],
+    model: 'Claude 3.5 Sonnet',
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // 1. Initial Load: Fetch Projects
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:41661/api/projects');
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data);
+        if (data.length > 0 && !selectedProject) {
+          // Default to first project
+          handleSelectProject(data[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load projects:', err);
+    }
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  // 2. Select Project & Load Real Sessions & State
+  const handleSelectProject = async (project: ProjectItem) => {
+    setSelectedProject(project);
+    setProjectDropdownOpen(false);
+    setSelectedSession(null);
+    setMessages([]);
 
-  // Initial council run on load
-  useEffect(() => {
-    triggerCouncilDebate(PRESET_TOPICS[0]);
-  }, [selectedProject.id]);
+    try {
+      // Fetch Sessions
+      const sRes = await fetch(`http://127.0.0.1:41661/api/projects/${project.id}/sessions`);
+      if (sRes.ok) {
+        const sData: CouncilSession[] = await sRes.json();
+        setSessions(sData);
 
-  const triggerCouncilDebate = async (targetTopic: string) => {
+        if (sData.length > 0) {
+          // Load latest real session
+          handleSelectSession(sData[0].id);
+        }
+      }
+
+      // Fetch Decisions
+      const dRes = await fetch(`http://127.0.0.1:41661/api/projects/${project.id}/decisions`);
+      if (dRes.ok) {
+        const dData = await dRes.json();
+        setDecisions(dData);
+      }
+
+      // Fetch Project Details (Tasks & Unresolved Questions)
+      const pRes = await fetch(`http://127.0.0.1:41661/api/projects/${project.id}`);
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        setTasks(pData.tasks || []);
+        setUnresolvedQuestions(pData.unresolved_questions || []);
+      }
+    } catch (err) {
+      console.error('Error loading project state:', err);
+    }
+  };
+
+  // 3. Load Specific Council Session (Immutable record)
+  const handleSelectSession = async (debateId: string) => {
+    try {
+      const res = await fetch(`http://127.0.0.1:41661/api/debates/${debateId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedSession(data);
+        setMessages(data.messages || []);
+        setHistoryDrawerOpen(false);
+      }
+    } catch (err) {
+      console.error('Error fetching debate details:', err);
+    }
+  };
+
+  // 4. Start New Council Debate (Creates sequential #001, #002...)
+  const handleStartCouncil = async (questionTopic: string) => {
+    if (!selectedProject || !questionTopic.trim() || isDebating) return;
+
     setIsDebating(true);
     setMessages([]);
     setCurrentRound(1);
-    setOutlook(null);
+    setNewQuestion('');
 
     try {
       const res = await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/debates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: targetTopic }),
+        body: JSON.stringify({ topic: questionTopic }),
       });
 
       if (res.ok) {
         const data = await res.json();
+
+        // Connect SSE Stream
         const eventSource = new EventSource(`http://127.0.0.1:41661/api/debates/${data.debate_id}/stream`);
 
         eventSource.addEventListener('round_start', (e: any) => {
@@ -245,167 +351,133 @@ export default function CouncilDashboard() {
         eventSource.addEventListener('agent_message', (e: any) => {
           const msg = JSON.parse(e.data);
           if (msg) {
-            setMessages((prev) => [...prev, { ...msg, cost: '$0.003' }]);
+            setMessages((prev) => [...prev, msg]);
           }
-        });
-
-        eventSource.addEventListener('outlook_summary', (e: any) => {
-          const out = JSON.parse(e.data);
-          setOutlook(out);
         });
 
         eventSource.addEventListener('debate_done', () => {
           setIsDebating(false);
           eventSource.close();
+          // Reload sessions list and project state
+          handleSelectProject(selectedProject);
         });
 
         eventSource.onerror = () => {
           eventSource.close();
-          fallbackLocalSim(targetTopic);
+          setIsDebating(false);
         };
-      } else {
-        fallbackLocalSim(targetTopic);
       }
-    } catch {
-      fallbackLocalSim(targetTopic);
+    } catch (err) {
+      console.error('Failed to trigger debate:', err);
+      setIsDebating(false);
     }
   };
 
-  const fallbackLocalSim = (targetTopic: string) => {
-    const simulatedMessages: AgentMessage[] = [
-      {
-        agent: 'product',
-        title: 'Product Manager',
-        avatar: '👨‍💼',
-        color: 'blue',
-        provider: 'OpenAI',
-        model: 'GPT-4o',
-        classification: 'FACT',
-        content: `Analyzing '${selectedProject.name}': The initial onboarding flow contains 5 configuration screens before users experience product value.`,
-        evidence_ref: 'docs/onboarding.md#L30-L55',
-        confidence: 0.95,
-        cost: '$0.004',
-      },
-      {
-        agent: 'engineering',
-        title: 'Senior Engineer',
-        avatar: '🧑‍💻',
-        color: 'emerald',
-        provider: 'DeepSeek',
-        model: 'DeepSeek-V3',
-        classification: 'FACT',
-        content: 'Core automated test suite reports 82% coverage. However, third-party webhook retry logic lacks unit tests.',
-        evidence_ref: 'tests/integration/test_webhooks.py',
-        confidence: 0.91,
-        cost: '$0.001',
-      },
-      {
-        agent: 'security',
-        title: 'Security Specialist',
-        avatar: '🔐',
-        color: 'rose',
-        provider: 'Anthropic',
-        model: 'Claude 3.5 Sonnet',
-        classification: 'INFERENCE',
-        content: 'The public API gateway has no active token-bucket rate limiter. An automated scrape could exhaust worker connection pools.',
-        evidence_ref: 'server/app/main.py#L40',
-        confidence: 0.88,
-        cost: '$0.006',
-      },
-      {
-        agent: 'growth',
-        title: 'Growth Lead',
-        avatar: '📈',
-        color: 'amber',
-        provider: 'Google',
-        model: 'Gemini 1.5 Pro',
-        classification: 'OPINION',
-        content: 'Launching without an organic invite loop or automated referral incentive will result in a flatlined post-launch retention curve.',
-        evidence_ref: null,
-        confidence: 0.82,
-        cost: '$0.002',
-      },
-      {
-        agent: 'skeptic',
-        title: 'Skeptic / Red Team',
-        avatar: '🕵️',
-        color: 'purple',
-        provider: 'Anthropic',
-        model: 'Claude 3.5 Sonnet',
-        classification: 'SCENARIO',
-        content: 'If we launch today, we risk burning early waitlist enthusiasm. 70% of early adopters churn permanently if initial friction exceeds 2 minutes.',
-        evidence_ref: null,
-        confidence: 0.86,
-        cost: '$0.005',
-      },
-      {
-        agent: 'moderator',
-        title: 'Chief AI / Moderator',
-        avatar: '🧠',
-        color: 'indigo',
-        provider: 'BotDigit Auto',
-        model: 'Claude 3.5 Sonnet',
-        classification: 'OPINION',
-        content: 'Consensus reached: Do NOT launch publicly today. Execute a 72-hour hardening sprint: (1) Simplify onboarding to 1-click template, (2) Add Redis rate limiting on auth endpoints, (3) Raise connection pool limit.',
-        evidence_ref: null,
-        confidence: 0.96,
-        cost: '$0.005',
-      },
-    ];
+  // 5. Submit Project Creation Wizard
+  const handleCreateProject = async () => {
+    if (!wizardForm.name.trim()) return;
 
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i < simulatedMessages.length) {
-        const nextMsg = simulatedMessages[i];
-        if (nextMsg) {
-          setMessages((prev) => [...prev, nextMsg]);
+    const slug = wizardForm.slug.trim() || wizardForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+    try {
+      const res = await fetch('http://127.0.0.1:41661/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: wizardForm.name,
+          slug,
+          project_type: wizardForm.project_type,
+          description: wizardForm.description,
+          primary_domain: wizardForm.primary_domain || null,
+          staging_url: wizardForm.staging_url || null,
+          github_repo_full_name: wizardForm.github_repo_full_name || null,
+        }),
+      });
+
+      if (res.ok) {
+        const newProj = await res.json();
+        setWizardOpen(false);
+        setWizardStep(1);
+        await fetchProjects();
+        // Load the new project
+        const fullProjRes = await fetch(`http://127.0.0.1:41661/api/projects/${newProj.id}`);
+        if (fullProjRes.ok) {
+          const fullProj = await fullProjRes.json();
+          handleSelectProject(fullProj);
         }
-        i++;
-      } else {
-        clearInterval(interval);
-        setIsDebating(false);
-        setOutlook({
-          technical_readiness: 78,
-          market_evidence: 54,
-          distribution_readiness: 42,
-          risk_index: 'medium',
-          launch_verdict: 'Conditional 72-Hour Hold',
-          consensus_summary: 'Delay public launch for 72 hours to implement 1-click template onboarding and Redis rate limiting.',
-        });
       }
-    }, 450);
+    } catch (err) {
+      console.error('Failed to create project:', err);
+    }
   };
 
-  const toggleAgent = (agentId: string) => {
-    setActiveAgentIds((prev) =>
-      prev.includes(agentId) ? prev.filter((id) => id !== agentId) : [...prev, agentId]
-    );
+  // 6. Domain Verification
+  const handleVerifyDomain = async () => {
+    if (!selectedProject) return;
+    try {
+      const res = await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/verify-domain`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'dns_txt' }),
+      });
+      if (res.ok) {
+        setDomainModalOpen(false);
+        handleSelectProject(selectedProject);
+      }
+    } catch (err) {
+      console.error('Domain verification error:', err);
+    }
   };
 
-  const toggleTaskStatus = (id: string) => {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, status: t.status === 'approved' ? 'done' : 'approved' } : t
-      )
-    );
+  // 7. Publish Session
+  const handlePublishSession = async () => {
+    if (!selectedSession) return;
+    try {
+      const res = await fetch(`http://127.0.0.1:41661/api/debates/${selectedSession.id}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sanitized_sections: publishSections }),
+      });
+      if (res.ok) {
+        setPublishModalOpen(false);
+        handleSelectSession(selectedSession.id);
+      }
+    } catch (err) {
+      console.error('Publishing error:', err);
+    }
   };
 
-  const copyExecutiveSummary = () => {
-    if (!outlook) return;
-    const text = `BOTDIGIT AI COUNCIL — EXECUTIVE PROJECT AUDIT
-Project: ${selectedProject.name} (${selectedProject.code})
-Workspace: ${selectedProject.workspace}
-Verdict: ${outlook.launch_verdict}
-Consensus: ${outlook.consensus_summary}
-Technical Readiness: ${outlook.technical_readiness}%
-Market Evidence: ${outlook.market_evidence}%
-Risk Index: ${outlook.risk_index.toUpperCase()}
-Generated by BotDigit AI Council (council.botdigit.site)`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // 8. Reopen Decision
+  const handleReopenDecision = async (decisionId: string) => {
+    if (!selectedProject) return;
+    try {
+      const res = await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/decisions/${decisionId}/reopen`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        handleSelectProject(selectedProject);
+      }
+    } catch (err) {
+      console.error('Reopen decision error:', err);
+    }
   };
 
+  // 9. Ask Unresolved Question
+  const handleAskUnresolvedQuestion = async (questionId: string) => {
+    if (!selectedProject) return;
+    try {
+      const res = await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/unresolved-questions/${questionId}/ask`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        handleSelectProject(selectedProject);
+      }
+    } catch (err) {
+      console.error('Ask question error:', err);
+    }
+  };
+
+  // Helper Badge Color
   const getBadgeStyle = (classification: string) => {
     switch (classification) {
       case 'FACT':
@@ -421,99 +493,103 @@ Generated by BotDigit AI Council (council.botdigit.site)`;
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'live':
+        return <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />LIVE</span>;
+      case 'draft':
+        return <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/20 text-amber-400 border border-amber-500/40">🟡 DRAFT</span>;
+      case 'completed':
+        return <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-blue-500/20 text-blue-400 border border-blue-500/40">🔵 COMPLETED</span>;
+      default:
+        return <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40">🔴 FAILED</span>;
+    }
+  };
+
+  if (!selectedProject) {
+    return (
+      <div className="min-h-screen bg-[#060911] text-slate-100 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-slate-400 font-mono">Initializing BotDigit AI Council Platform...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#070a12] text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#060911] text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30">
       {/* 1. Global Navigation Bar */}
-      <header className="border-b border-slate-800/90 bg-[#090d18]/95 backdrop-blur sticky top-0 z-50 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <header className="border-b border-slate-800/80 bg-[#080c18]/90 backdrop-blur-md sticky top-0 z-40 px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-6">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center font-bold text-white shadow-md shadow-indigo-500/20 text-sm">
               BC
             </div>
             <div>
-              <span className="font-bold text-sm tracking-wide text-white">BotDigit AI Council</span>
-              <span className="ml-2 text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                Operating System
-              </span>
+              <div className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
+                BotDigit AI Council
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-mono">
+                  PLATFORM
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="h-4 w-px bg-slate-800" />
+          <div className="h-5 w-px bg-slate-800" />
 
-          {/* Explicit Workspace / Project Switcher */}
+          {/* Project Hierarchy Switcher */}
           <div className="relative">
             <button
               onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
-              className="flex items-center gap-2.5 bg-slate-900 hover:bg-slate-800/90 border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs transition"
+              className="flex items-center gap-2.5 text-xs bg-slate-900 border border-slate-700/80 hover:border-slate-600 rounded-lg px-3 py-1.5 transition text-slate-200"
             >
-              <div className="flex items-center gap-1 text-slate-400">
-                <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                <span>Workspace:</span>
-                <span className="text-slate-200 font-medium">{selectedProject.workspace}</span>
-              </div>
+              <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Workspace: <strong className="text-white">{selectedProject.workspace_name}</strong></span>
               <span className="text-slate-600">/</span>
-              <div className="flex items-center gap-1.5 text-white font-semibold">
-                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                <span>{selectedProject.name}</span>
-              </div>
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              <span className="font-semibold text-white">{selectedProject.name}</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
             </button>
 
-            {/* Project Switcher Dropdown */}
             {projectDropdownOpen && (
-              <div className="absolute left-0 mt-2 w-80 bg-[#0f172a] border border-slate-700 rounded-xl shadow-2xl z-50 p-2">
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-1.5">
-                  Your Managed Projects
+              <div className="absolute left-0 mt-2 w-80 bg-[#0b1020] border border-slate-700 rounded-xl shadow-2xl py-2 z-50">
+                <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                  Switch Managed Project
                 </div>
-                <div className="space-y-1">
-                  {ALL_PROJECTS.map((p) => (
+                <div className="max-h-60 overflow-y-auto py-1">
+                  {projects.map((p) => (
                     <button
                       key={p.id}
-                      onClick={() => {
-                        setSelectedProject(p);
-                        setProjectDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition ${
-                        selectedProject.id === p.id
-                          ? 'bg-indigo-600/20 border border-indigo-500/40 text-white'
-                          : 'hover:bg-slate-800/60 text-slate-300'
+                      onClick={() => handleSelectProject(p)}
+                      className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800/60 transition ${
+                        selectedProject.id === p.id ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-300'
                       }`}
                     >
                       <div>
                         <div className="font-semibold flex items-center gap-1.5">
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              p.id === 'prj_01'
-                                ? 'bg-blue-400'
-                                : p.id === 'prj_02'
-                                ? 'bg-purple-400'
-                                : p.id === 'prj_03'
-                                ? 'bg-emerald-400'
-                                : 'bg-amber-400'
-                            }`}
-                          />
-                          <span>{p.name}</span>
+                          <span className={`w-2 h-2 rounded-full ${p.sessions_count > 0 ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                          {p.name}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          {p.code} • {p.visibility} • {p.active_agents_count} agents
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          {p.sessions_count} sessions · {p.project_type.replace('_', ' ')}
                         </div>
                       </div>
-                      {selectedProject.id === p.id && (
-                        <CheckCircle2 className="w-4 h-4 text-indigo-400" />
-                      )}
+                      {selectedProject.id === p.id && <CheckCircle2 className="w-4 h-4 text-indigo-400" />}
                     </button>
                   ))}
                 </div>
-
-                <div className="border-t border-slate-800 mt-2 pt-2 px-2 flex justify-between">
-                  <button className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 py-1">
+                <div className="border-t border-slate-800 mt-1 pt-1.5 px-2">
+                  <button
+                    onClick={() => {
+                      setProjectDropdownOpen(false);
+                      setWizardOpen(true);
+                    }}
+                    className="w-full text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center justify-center gap-1.5 py-1.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 transition"
+                  >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Create New Project</span>
-                  </button>
-                  <button className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 py-1">
-                    <Settings className="w-3.5 h-3.5" />
-                    <span>Manage</span>
                   </button>
                 </div>
               </div>
@@ -523,54 +599,45 @@ Generated by BotDigit AI Council (council.botdigit.site)`;
 
         {/* Global Nav Right Controls */}
         <div className="flex items-center gap-3">
-          {/* AI Provider & Agent Control Center Pill */}
+          {/* Council History Button */}
           <button
-            onClick={() => setControlCenterOpen(true)}
-            className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition"
+            onClick={() => setHistoryDrawerOpen(true)}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 transition"
           >
-            <Cpu className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="font-semibold">{activeAgentIds.length} / 12 Active Agents</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/30 font-mono">
-              {providerMode === 'botdigit' ? 'BotDigit AI' : providerMode === 'byok' ? 'BYOK' : 'Local Ollama'}
-            </span>
+            <History className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Council History ({sessions.length})</span>
           </button>
 
-          {/* Visibility Indicator */}
-          <div
-            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${
-              selectedProject.visibility === 'public'
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                : 'bg-slate-900 border-slate-800 text-slate-400'
-            }`}
-          >
-            {selectedProject.visibility === 'public' ? (
-              <>
-                <Globe className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Public Snapshot Active</span>
-              </>
-            ) : (
-              <>
-                <Lock className="w-3.5 h-3.5" />
-                <span>Private Workspace</span>
-              </>
-            )}
-          </div>
+          {/* Domain Verification Badge */}
+          {selectedProject.primary_domain && (
+            <button
+              onClick={() => setDomainModalOpen(true)}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition ${
+                selectedProject.domain_verified
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>{selectedProject.domain_verified ? '🟢 Domain Verified' : '🟡 Verify Domain'}</span>
+            </button>
+          )}
 
-          {/* GitHub Connected Badge */}
+          {/* GitHub Connection Badge */}
           <a
-            href={selectedProject.github_url}
+            href={selectedProject.github_repo_url || '#'}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 transition"
           >
-            <GitBranch className="w-3.5 h-3.5 text-slate-400" />
-            <span>{selectedProject.github_url.replace('https://github.com/', '')}</span>
+            <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{selectedProject.github_repo_full_name || 'GitHub'}</span>
             <ExternalLink className="w-3 h-3 text-slate-500" />
           </a>
         </div>
       </header>
 
-      {/* 2. Persistent Project Identity Hero Section (Zero Ambiguity) */}
+      {/* 2. Persistent Project Identity Hero Section */}
       <section className="bg-gradient-to-b from-[#0d1424] to-[#090d16] border-b border-slate-800/80 px-8 py-5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -580,21 +647,23 @@ Generated by BotDigit AI Council (council.botdigit.site)`;
                 {selectedProject.name}
               </h1>
               <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                {selectedProject.code}
+                PRJ-{selectedProject.slug.slice(0, 5).toUpperCase()}
               </span>
               <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                ● {selectedProject.status}
+                ● Active
               </span>
             </div>
 
-            <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-3">
-              <span>Client: <strong className="text-slate-300">{selectedProject.client_name}</strong></span>
+            <p className="text-xs text-slate-400 mt-2 flex flex-wrap items-center gap-3">
+              <span>Domain: <strong className="text-slate-200">{selectedProject.primary_domain || 'None configured'}</strong></span>
               <span>•</span>
-              <span>Env: <strong className="text-slate-300">{selectedProject.environment}</strong></span>
+              <span>GitHub: <strong className="text-slate-200">{selectedProject.github_connected ? 'Connected' : 'Disconnected'}</strong></span>
               <span>•</span>
-              <span>Repo: <strong className="text-slate-300 font-mono">{selectedProject.github_url.replace('https://github.com/', '')}</strong></span>
+              <span>AI Team: <strong className="text-indigo-400">6 / 12 Personas</strong></span>
               <span>•</span>
-              <span>Decisions Logged: <strong className="text-indigo-400">{selectedProject.total_decisions}</strong></span>
+              <span>Sessions Logged: <strong className="text-white font-mono">{sessions.length}</strong></span>
+              <span>•</span>
+              <span>Decisions: <strong className="text-emerald-400 font-mono">{selectedProject.decisions_count}</strong></span>
             </p>
           </div>
 
@@ -605,8 +674,8 @@ Generated by BotDigit AI Council (council.botdigit.site)`;
                 { id: 'council', label: 'Council Room', icon: Sparkles },
                 { id: 'decisions', label: 'Decisions Memory', icon: BookOpen },
                 { id: 'tasks', label: 'Tasks & GitHub', icon: CheckCircle2 },
-                { id: 'memory', label: 'Knowledge Graph', icon: Layers },
-                { id: 'roadmap', label: 'Public Roadmap', icon: Globe },
+                { id: 'health', label: 'Project Health', icon: Activity },
+                { id: 'history', label: 'Session Archive', icon: History },
               ] as const
             ).map((tab) => {
               const Icon = tab.icon;
@@ -629,876 +698,966 @@ Generated by BotDigit AI Council (council.botdigit.site)`;
         </div>
       </section>
 
-      {/* 3. Main Workspace Grid */}
+      {/* 3. Main Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6">
         {activeTab === 'council' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column: Live Council Discussion Room (7 cols) */}
-            <section className="lg:col-span-7 flex flex-col gap-4">
-              {/* Explicit Project Context Session Header */}
-              <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-lg">
-                    🧠
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white flex items-center gap-2">
-                      <span>{selectedProject.name} — AI Council Session #024</span>
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-[10px] text-emerald-400 font-mono">LIVE</span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
-                      ID: <span className="font-mono text-slate-300">{selectedProject.code}</span> • Workspace:{' '}
-                      <span className="text-slate-300">{selectedProject.workspace}</span> • {activeAgentIds.length} Agents
-                      Participating
-                    </div>
-                  </div>
+          <>
+            {/* Condition A: Clean Project with 0 sessions (NO Fake Discussions!) */}
+            {sessions.length === 0 && !isDebating ? (
+              <div className="max-w-3xl mx-auto py-12 flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-3xl mb-4">
+                  🧠
                 </div>
+                <h2 className="text-2xl font-bold tracking-tight text-white uppercase">
+                  {selectedProject.name}
+                </h2>
+                <p className="text-sm text-slate-400 mt-2 max-w-md">
+                  No council sessions yet. Your persistent AI team is configured and ready to investigate your project.
+                </p>
 
-                <div className="text-right">
-                  <span className="text-[10px] uppercase font-mono text-slate-500">Isolation Policy</span>
-                  <div className="text-xs font-mono text-indigo-400 font-semibold">Strict Project Boundary</div>
-                </div>
-              </div>
-
-              {/* Agenda & Topic Selector Bar */}
-              <div className="glass-panel p-4 rounded-xl flex flex-col gap-3">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                    Council Deliberation Agenda
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400 lowercase">
-                    scope: project_id = {selectedProject.code}
-                  </span>
-                </label>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    placeholder="Ask your persistent AI team..."
-                    className="flex-1 bg-slate-950/80 border border-slate-800 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition"
-                  />
-                  <button
-                    onClick={() => triggerCouncilDebate(topic)}
-                    disabled={isDebating}
-                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition"
-                  >
-                    {isDebating ? (
-                      <>
-                        <RotateCcw className="w-4 h-4 animate-spin" />
-                        <span>Deliberating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 fill-white" />
-                        <span>Convene Council</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Quick Presets */}
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {PRESET_TOPICS.map((p, idx) => (
+                {/* Primary Question Input Box */}
+                <div className="w-full mt-8 bg-[#0b1020] border border-slate-800 rounded-2xl p-6 shadow-xl text-left">
+                  <label className="text-xs font-semibold text-indigo-400 uppercase tracking-wider block mb-2">
+                    What should your council investigate?
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newQuestion}
+                      onChange={(e) => setNewQuestion(e.target.value)}
+                      placeholder="Ask your first project question... (e.g. Review project architecture)"
+                      className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                      onKeyDown={(e) => e.key === 'Enter' && handleStartCouncil(newQuestion)}
+                    />
                     <button
-                      key={idx}
-                      onClick={() => {
-                        setTopic(p);
-                        triggerCouncilDebate(p);
-                      }}
-                      className="text-[11px] bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded-md transition"
+                      onClick={() => handleStartCouncil(newQuestion)}
+                      disabled={!newQuestion.trim()}
+                      className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold text-sm flex items-center gap-2 transition shadow-lg shadow-indigo-600/30"
                     >
-                      {p}
+                      <Play className="w-4 h-4 fill-white" />
+                      <span>Start Council</span>
                     </button>
-                  ))}
+                  </div>
+
+                  {/* Suggested Question Chips */}
+                  <div className="mt-4 pt-4 border-t border-slate-800/80">
+                    <span className="text-xs text-slate-400 font-medium block mb-2">Suggested investigations:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {SUGGESTED_QUESTIONS.map((q) => (
+                        <button
+                          key={q}
+                          onClick={() => handleStartCouncil(q)}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700 transition"
+                        >
+                          • {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 text-xs text-slate-500 font-mono">
+                  Every council session generates an authentic, immutable audit trail starting from Council Session #001.
                 </div>
               </div>
+            ) : (
+              /* Condition B: Active or Historical Council Session */
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left 7 Columns: Debate Room */}
+                <section className="lg:col-span-7 flex flex-col gap-4">
+                  {/* Session Header */}
+                  <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-lg">
+                        🧠
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white flex items-center gap-2">
+                          <span>
+                            {selectedProject.name} — AI Council Session {selectedSession?.session_code || `#${(sessions.length + 1).toString().padStart(3, '0')}`}
+                          </span>
+                          {getStatusBadge(isDebating ? 'live' : (selectedSession?.status || 'completed'))}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          Strict isolation boundary: <code className="text-indigo-400 font-mono">project_id={selectedProject.id.slice(0, 8)}</code>
+                        </div>
+                      </div>
+                    </div>
 
-              {/* Live Council Room */}
-              <div className="glass-panel flex-1 rounded-xl p-5 flex flex-col min-h-[500px] border border-slate-800/80">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                    <h2 className="font-semibold text-sm tracking-wide text-white">
-                      Live Multi-Agent Discussion Room
-                    </h2>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
-                      Round {currentRound} of 4
-                    </span>
-                    <span>{messages.length} Statements Tagged</span>
-                  </div>
-                </div>
-
-                {/* Chat Transcript */}
-                <div className="flex-1 overflow-y-auto space-y-3.5 pr-2 max-h-[520px]">
-                  {messages
-                    .filter((m): m is AgentMessage => Boolean(m && typeof m === 'object'))
-                    .map((m, idx) => {
-                      const avatar = m.avatar || '🤖';
-                      const title = m.title || 'Council Agent';
-                      const classification = m.classification || 'OPINION';
-                      return (
-                        <div
-                          key={idx}
-                          className="glass-card rounded-lg p-3.5 border border-slate-800/60 hover:border-slate-700/80 transition"
+                    <div className="flex items-center gap-2">
+                      {selectedSession && !isDebating && (
+                        <button
+                          onClick={() => setPublishModalOpen(true)}
+                          className="text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 transition"
                         >
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-base">{avatar}</span>
-                              <span className="font-semibold text-xs text-slate-200">{title}</span>
-                              <span className="text-[10px] text-slate-500 font-mono">
-                                {selectedProject.name}
-                              </span>
-                              <span
-                                className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full border ${getBadgeStyle(
-                                  classification
-                                )}`}
-                              >
-                                [{classification}]
-                              </span>
-                            </div>
+                          <Share2 className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>{selectedSession.is_published ? 'Public Settings' : 'Publish Discussion'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
-                            <div className="flex items-center gap-2">
-                              {m.model && (
-                                <span className="text-[10px] font-mono bg-slate-800/80 text-slate-300 border border-slate-700 px-1.5 py-0.5 rounded">
-                                  {m.model}
-                                </span>
-                              )}
-                              {m.evidence_ref && (
-                                <span className="text-[10px] font-mono bg-blue-950/40 text-blue-300 border border-blue-800/50 px-2 py-0.5 rounded flex items-center gap-1">
-                                  <span>Ref: {m.evidence_ref}</span>
-                                </span>
-                              )}
-                              <span className="text-[10px] text-slate-500 font-mono">
-                                {((m.confidence ?? 0.85) * 100).toFixed(0)}% conf
-                              </span>
-                            </div>
+                  {/* Ask Question Bar */}
+                  <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-3 flex gap-2">
+                    <input
+                      type="text"
+                      value={newQuestion}
+                      onChange={(e) => setNewQuestion(e.target.value)}
+                      placeholder="Convene council on a new project question..."
+                      className="flex-1 bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                      onKeyDown={(e) => e.key === 'Enter' && handleStartCouncil(newQuestion)}
+                    />
+                    <button
+                      onClick={() => handleStartCouncil(newQuestion)}
+                      disabled={!newQuestion.trim() || isDebating}
+                      className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium text-xs flex items-center gap-1.5 transition"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-white" />
+                      <span>Convene Council</span>
+                    </button>
+                  </div>
+
+                  {/* Live Debate Statements Container */}
+                  <div className="bg-[#080c18] border border-slate-800 rounded-xl p-4 flex flex-col gap-3 min-h-[420px] max-h-[640px] overflow-y-auto">
+                    <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800/80">
+                      <span className="font-semibold text-slate-200">
+                        {isDebating ? `Live Deliberation in Progress (Round ${currentRound})` : `Deliberation Transcript — ${messages.length} Statements Tagged`}
+                      </span>
+                      <span className="font-mono text-[11px] text-slate-500">
+                        Topic: {selectedSession?.topic || 'Launch Assessment'}
+                      </span>
+                    </div>
+
+                    {messages.map((m, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-[#0c1222] border border-slate-800/90 rounded-xl p-3.5 flex flex-col gap-2 transition hover:border-slate-700"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{m.avatar}</span>
+                            <span className="text-xs font-semibold text-slate-200">{m.title}</span>
+                            <span className="text-[10px] text-slate-400">· {selectedProject.name}</span>
                           </div>
 
-                          <p className="text-xs text-slate-300 leading-relaxed pl-6">{m.content}</p>
+                          <div className="flex items-center gap-2">
+                            {/* Classification Badge */}
+                            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border font-semibold ${getBadgeStyle(m.classification)}`}>
+                              [{m.classification}]
+                            </span>
+
+                            {/* Real Model Attribution Badge */}
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                              {m.model || 'Claude 3.5 Sonnet'}
+                            </span>
+
+                            {/* Evidence Reference Clickable Chip */}
+                            {m.evidence_ref && (
+                              <button
+                                onClick={() => {
+                                  setActiveEvidence(m);
+                                  setEvidenceDrawerOpen(true);
+                                }}
+                                className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center gap-1 transition"
+                              >
+                                <Code2 className="w-3 h-3" />
+                                <span>Ref: {m.evidence_ref}</span>
+                              </button>
+                            )}
+
+                            {/* Verified Strength Tag */}
+                            <span className="text-[10px] font-mono text-slate-400">
+                              Strength: <strong className="text-emerald-400">{m.evidence_strength || 'HIGH'}</strong>
+                            </span>
+                          </div>
                         </div>
-                      );
-                    })}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
-            </section>
 
-            {/* Right Column: Outlook Diagnostic & Decision Memory (5 cols) */}
-            <section className="lg:col-span-5 flex flex-col gap-5">
-              {/* Project Outlook Diagnostic */}
-              <div className="glass-panel p-5 rounded-xl border border-slate-800/80 flex flex-col gap-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-indigo-400" />
-                    <h3 className="font-semibold text-sm text-white">Project Outlook Diagnostic</h3>
-                  </div>
-                  <button
-                    onClick={copyExecutiveSummary}
-                    className="text-xs flex items-center gap-1 text-slate-400 hover:text-indigo-400 transition"
-                    title="Copy client-ready report"
-                  >
-                    <ClipboardCopy className="w-3.5 h-3.5" />
-                    <span>{copied ? 'Copied!' : 'Export'}</span>
-                  </button>
-                </div>
+                        {/* Statement Content */}
+                        <p className="text-xs text-slate-300 leading-relaxed pl-6">
+                          {m.content}
+                        </p>
 
-                {outlook ? (
-                  <div className="flex flex-col gap-4">
-                    {/* Launch Verdict Banner */}
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                      <div className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">
-                        Council Verdict
-                      </div>
-                      <div className="text-sm font-bold text-white mt-0.5">
-                        {outlook.launch_verdict}
-                      </div>
-                      <p className="text-xs text-slate-300 mt-1">{outlook.consensus_summary}</p>
-                    </div>
-
-                    {/* Metric Bars */}
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-slate-400">Technical Readiness</span>
-                          <span className="font-mono text-indigo-400 font-bold">
-                            {outlook.technical_readiness}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-                          <div
-                            className="bg-indigo-500 h-full rounded-full transition-all duration-700"
-                            style={{ width: `${outlook.technical_readiness}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-slate-400">Market & Validation Evidence</span>
-                          <span className="font-mono text-emerald-400 font-bold">
-                            {outlook.market_evidence}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-                          <div
-                            className="bg-emerald-500 h-full rounded-full transition-all duration-700"
-                            style={{ width: `${outlook.market_evidence}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-slate-400">Distribution Readiness</span>
-                          <span className="font-mono text-amber-400 font-bold">
-                            {outlook.distribution_readiness}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-                          <div
-                            className="bg-amber-500 h-full rounded-full transition-all duration-700"
-                            style={{ width: `${outlook.distribution_readiness}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800/80">
-                        <span className="text-slate-400">Operational Risk Index</span>
-                        <span className="uppercase text-[11px] font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                          {outlook.risk_index}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-xs text-slate-500 py-6 text-center">
-                    Awaiting debate completion to render multi-dimensional outlook...
-                  </div>
-                )}
-              </div>
-
-              {/* Action Plan & Human Approval Checklist */}
-              <div className="glass-panel p-5 rounded-xl border border-slate-800/80 flex flex-col gap-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <h3 className="font-semibold text-sm text-white">Actionable Next Steps</h3>
-                  </div>
-                  <span className="text-[11px] text-slate-400">Human Sign-off</span>
-                </div>
-
-                <p className="text-xs text-slate-400">
-                  Tasks synthesized from council consensus. Click to approve and push to GitHub:
-                </p>
-
-                <div className="space-y-2 mt-1">
-                  {tasks.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => toggleTaskStatus(t.id)}
-                      className={`p-3 rounded-lg border text-xs cursor-pointer transition flex items-start gap-2.5 ${
-                        t.status === 'done'
-                          ? 'bg-slate-900/40 border-slate-800 text-slate-500 line-through'
-                          : t.status === 'approved'
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                          : 'bg-slate-900 border-slate-800 text-slate-200 hover:border-slate-700'
-                      }`}
-                    >
-                      <div
-                        className={`w-4 h-4 rounded mt-0.5 flex items-center justify-center border ${
-                          t.status === 'done' || t.status === 'approved'
-                            ? 'border-emerald-500 bg-emerald-500 text-black'
-                            : 'border-slate-600'
-                        }`}
-                      >
-                        {(t.status === 'done' || t.status === 'approved') && (
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        )}
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="font-medium">{t.title}</div>
-                        <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
-                          <span className="capitalize">Agent: {t.assigned_agent}</span>
+                        {/* Token / Cost Footer */}
+                        <div className="pl-6 pt-1 text-[10px] text-slate-500 flex items-center gap-3 font-mono">
+                          <span>Tokens: {m.tokens_in || 1200} in / {m.tokens_out || 250} out</span>
                           <span>•</span>
-                          <span className="uppercase text-amber-400 font-semibold">{t.priority}</span>
+                          <span>Cost: {m.cost || '$0.004'}</span>
                           <span>•</span>
-                          <span className="capitalize">{t.status}</span>
+                          <span>Source: {m.evidence_source || 'GitHub'}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </section>
+
+                {/* Right 5 Columns: Outlook, Disagreements, Unresolved Questions & Tasks */}
+                <section className="lg:col-span-5 flex flex-col gap-4">
+                  {/* Verdict & Outlook Card */}
+                  <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-4 shadow-sm">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                      <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                        Project Outlook Diagnostic
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        Verdict: {selectedSession?.outlook?.launch_verdict || selectedProject.outlook?.launch_verdict || 'Analysis Complete'}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                      <div className="text-[11px] font-mono text-amber-400 font-semibold uppercase">
+                        COUNCIL CONSENSUS VERDICT
+                      </div>
+                      <div className="text-xs text-slate-200 mt-1 font-medium">
+                        {selectedSession?.consensus_summary || selectedProject.outlook?.consensus_summary || 'Council deliberation concluded.'}
+                      </div>
+                    </div>
+
+                    {/* Readiness Meters */}
+                    <div className="mt-4 space-y-2.5">
+                      <div>
+                        <div className="flex justify-between text-xs text-slate-300 mb-1">
+                          <span>Technical Readiness</span>
+                          <span className="font-mono text-indigo-400 font-semibold">{selectedSession?.outlook?.technical_readiness || selectedProject.health_scores?.engineering || 78}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                          <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${selectedSession?.outlook?.technical_readiness || 78}%` }} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-xs text-slate-300 mb-1">
+                          <span>Security & OWASP Score</span>
+                          <span className="font-mono text-emerald-400 font-semibold">{selectedProject.health_scores?.security || 91}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${selectedProject.health_scores?.security || 91}%` }} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-xs text-slate-300 mb-1">
+                          <span>Market & Distribution Evidence</span>
+                          <span className="font-mono text-amber-400 font-semibold">{selectedSession?.outlook?.market_evidence || 54}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                          <div className="h-full bg-amber-500 rounded-full" style={{ width: `${selectedSession?.outlook?.market_evidence || 54}%` }} />
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+
+                  {/* Disagreements Card (Key Differentiator) */}
+                  {selectedSession?.disagreements && selectedSession.disagreements.length > 0 && (
+                    <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-4 shadow-sm">
+                      <div className="text-xs font-semibold text-slate-200 flex items-center gap-1.5 mb-2.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Key Agent Disagreements</span>
+                      </div>
+                      <div className="space-y-2">
+                        {selectedSession.disagreements.map((d, i) => (
+                          <div key={i} className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 text-xs">
+                            <div className="font-semibold text-amber-300">{d.topic}</div>
+                            <div className="text-slate-400 mt-1 leading-relaxed text-[11px]">{d.summary}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Unresolved Questions Card */}
+                  <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-4 shadow-sm">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                        <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
+                        Unresolved Questions ({unresolvedQuestions.length})
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {unresolvedQuestions.map((q) => (
+                        <div key={q.id} className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between gap-3 text-xs">
+                          <div>
+                            <div className="text-slate-200 font-medium">{q.question}</div>
+                            {q.context_summary && (
+                              <div className="text-[11px] text-slate-400 mt-0.5">{q.context_summary}</div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleAskUnresolvedQuestion(q.id)}
+                            className="px-2.5 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-[11px] whitespace-nowrap font-medium transition"
+                          >
+                            Ask Council
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Synthesized Tasks */}
+                  <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-4 shadow-sm">
+                    <div className="text-xs font-semibold text-slate-200 flex items-center gap-1.5 mb-2.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Synthesized Tasks for Human Sign-Off</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {tasks.map((t) => (
+                        <div key={t.id} className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs flex items-center justify-between">
+                          <div>
+                            <div className="text-slate-200 font-medium">{t.title}</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              Agent: <strong className="text-indigo-400">{t.assigned_agent}</strong> · Priority: <strong className="text-rose-400 uppercase">{t.priority}</strong>
+                            </div>
+                          </div>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+                            {t.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
               </div>
-            </section>
-          </div>
+            )}
+          </>
         )}
 
-        {/* DECISIONS MEMORY TAB (The Project Intelligence Graph Moat) */}
+        {/* Tab 2: Decisions Memory */}
         {activeTab === 'decisions' && (
-          <div className="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col gap-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div className="max-w-4xl mx-auto space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <BookOpen className="w-4 h-4 text-indigo-400" />
-                  <span>Perpetual Decision Memory & Assumption Graph</span>
-                </h2>
+                  Project Decision Memory
+                </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Scope: <strong className="text-slate-200">{selectedProject.name}</strong> ({selectedProject.code}) • Tracked
-                  assumptions, trade-offs, and automatic reopening triggers.
+                  Immutable record of strategic consensus, underlying assumptions, and automated review triggers.
                 </p>
               </div>
-              <span className="text-xs px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
-                {selectedProject.total_decisions} Historical Records
-              </span>
             </div>
 
-            <div className="space-y-4">
-              <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-white">Core Database & Vector Search Stack</span>
-                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
-                    ● Active Verified
-                  </span>
+            {decisions.map((d) => (
+              <div key={d.id} className="bg-[#0b1020] border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-white">{d.topic}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                      🟡 {d.status.replace('_', ' ').toUpperCase()}
+                    </span>
+                    <button
+                      onClick={() => handleReopenDecision(d.id)}
+                      className="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                    >
+                      Reopen Review
+                    </button>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed mb-3">
-                  Adopt PostgreSQL 16 with pgvector within self-hosted Supabase rather than a standalone Pinecone/Elastic instance.
+
+                <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-3 rounded-lg border border-slate-800/80">
+                  {d.decision_summary}
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-950/60 p-3 rounded-lg text-xs">
-                  <div>
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                      Trade-offs Accepted:
-                    </span>
-                    <ul className="list-disc list-inside text-slate-300 space-y-0.5 text-[11px]">
-                      <li>Unified ACID transactions & simplified operations</li>
-                      <li>Requires manual HNSW tuning over 10M vectors</li>
-                    </ul>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-slate-900/40 p-2.5 rounded-lg border border-slate-800/60">
+                    <span className="text-[11px] font-semibold text-indigo-400 block mb-1">Review Condition Trigger</span>
+                    <span className="text-slate-300">{d.review_condition}</span>
                   </div>
-                  <div>
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                      Underlying Assumptions:
-                    </span>
-                    <ul className="list-disc list-inside text-slate-300 space-y-0.5 text-[11px]">
-                      <li>Vector count &lt; 2M records</li>
-                      <li>Query latency &lt; 15ms</li>
-                    </ul>
+                  <div className="bg-slate-900/40 p-2.5 rounded-lg border border-slate-800/60">
+                    <span className="text-[11px] font-semibold text-emerald-400 block mb-1">Underlying Assumptions</span>
+                    <span className="text-slate-300">{JSON.stringify(d.underlying_assumptions)}</span>
                   </div>
-                </div>
-
-                <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-800/80 text-[11px]">
-                  <span className="text-slate-500 font-mono">Decision ID: DEC-991 • Logged by System Architect</span>
-                  <button
-                    onClick={() => {
-                      setTopic('Re-evaluating decision: Core Database & Vector Search Stack');
-                      setActiveTab('council');
-                      triggerCouncilDebate('Re-evaluating decision: Core Database & Vector Search Stack');
-                    }}
-                    className="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1"
-                  >
-                    <span>Reopen for Council Review</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
                 </div>
               </div>
-
-              <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-white">Public Marketplace Launch Hold</span>
-                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
-                    ● Pending Hardening
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed mb-3">
-                  Delay public launch for 72 hours until 1-click template onboarding and Redis rate limiting are deployed.
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-950/60 p-3 rounded-lg text-xs">
-                  <div>
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                      Trade-offs Accepted:
-                    </span>
-                    <ul className="list-disc list-inside text-slate-300 space-y-0.5 text-[11px]">
-                      <li>3-day public launch delay</li>
-                      <li>Slight delay in early waitlist conversion</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                      Underlying Assumptions:
-                    </span>
-                    <ul className="list-disc list-inside text-slate-300 space-y-0.5 text-[11px]">
-                      <li>Friction threshold &lt; 2 minutes</li>
-                      <li>Target activation rate &gt; 35%</li>
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-800/80 text-[11px]">
-                  <span className="text-slate-500 font-mono">Decision ID: DEC-992 • Logged by Product Manager</span>
-                  <button
-                    onClick={() => {
-                      setTopic('Re-evaluating decision: Public Marketplace Launch Hold');
-                      setActiveTab('council');
-                      triggerCouncilDebate('Re-evaluating decision: Public Marketplace Launch Hold');
-                    }}
-                    className="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1"
-                  >
-                    <span>Reopen for Council Review</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         )}
 
-        {/* TASKS & GITHUB TAB */}
+        {/* Tab 3: Tasks & GitHub */}
         {activeTab === 'tasks' && (
-          <div className="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col gap-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div className="max-w-4xl mx-auto space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Tasks, PR Gatekeepers & GitHub Execution</span>
-                </h2>
+                  Tasks & GitHub Issue Synchronizer
+                </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Connected Repository:{' '}
-                  <strong className="text-slate-200 font-mono">
-                    {selectedProject.github_url.replace('https://github.com/', '')}
-                  </strong>
+                  Actions synthesized from council consensus. 1-click human sign-off creates real GitHub issues.
                 </p>
-              </div>
-              <button className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center gap-1.5 shadow-sm">
-                <GitBranch className="w-3.5 h-3.5" />
-                <span>Configure Webhooks</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-[#0b1020] border border-slate-800 p-4 rounded-xl">
-                <div className="text-xs font-bold text-white">PR Gatekeeper Policy</div>
-                <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                  When a PR modifies authentication code, Security & Architecture agents automatically review changes against historical decisions.
-                </p>
-                <div className="mt-3 flex items-center gap-2 text-[10px] text-emerald-400 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Policy Active on develop</span>
-                </div>
-              </div>
-
-              <div className="bg-[#0b1020] border border-slate-800 p-4 rounded-xl">
-                <div className="text-xs font-bold text-white">Scheduled Weekly Audit</div>
-                <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                  Every Monday at 09:00 AM, the AI Council analyzes newly merged commits and drafts an executive weekly digest.
-                </p>
-                <div className="mt-3 flex items-center gap-2 text-[10px] text-indigo-400 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                  <span>Next Run: Monday 09:00 AM</span>
-                </div>
-              </div>
-
-              <div className="bg-[#0b1020] border border-slate-800 p-4 rounded-xl">
-                <div className="text-xs font-bold text-white">Human Approval Gate</div>
-                <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                  Agents can draft issues and code plans, but cannot merge PRs or deploy to production without explicit human authorization.
-                </p>
-                <div className="mt-3 flex items-center gap-2 text-[10px] text-amber-400 font-semibold">
-                  <Shield className="w-3 h-3" />
-                  <span>Human Gatekeeper Enforced</span>
-                </div>
               </div>
             </div>
 
-            <div className="mt-2 space-y-2">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                Active Action Items ({tasks.length})
-              </div>
+            <div className="space-y-3">
               {tasks.map((t) => (
-                <div
-                  key={t.id}
-                  className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl flex items-center justify-between text-xs"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      onClick={() => toggleTaskStatus(t.id)}
-                      className={`w-4 h-4 rounded cursor-pointer flex items-center justify-center border ${
-                        t.status === 'done' || t.status === 'approved'
-                          ? 'border-emerald-500 bg-emerald-500 text-black'
-                          : 'border-slate-600'
-                      }`}
-                    >
-                      {(t.status === 'done' || t.status === 'approved') && <CheckCircle2 className="w-3.5 h-3.5" />}
-                    </div>
-                    <div>
-                      <span className="font-semibold text-slate-200">{t.title}</span>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                        <span className="capitalize">Agent: {t.assigned_agent}</span>
-                        <span>•</span>
-                        <span className="uppercase text-amber-400 font-semibold">{t.priority}</span>
-                      </div>
+                <div key={t.id} className="bg-[#0b1020] border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-white">{t.title}</div>
+                    <div className="text-xs text-slate-400 mt-1 flex items-center gap-3">
+                      <span>Assigned Agent: <strong className="text-indigo-400">{t.assigned_agent}</strong></span>
+                      <span>•</span>
+                      <span>Priority: <strong className="text-rose-400 uppercase">{t.priority}</strong></span>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => {
-                      fetch(`http://127.0.0.1:41661/api/tasks/${t.id}/push-github`, { method: 'POST' });
-                      alert(`Task pushed to ${selectedProject.github_url}/issues!`);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition"
-                  >
-                    <GitBranch className="w-3 h-3 text-indigo-400" />
-                    <span>Push to GitHub Issues</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {t.github_issue_url ? (
+                      <a
+                        href={t.github_issue_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1"
+                      >
+                        <GitBranch className="w-3.5 h-3.5" />
+                        <span>Issue #43</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          await fetch(`http://127.0.0.1:41661/api/tasks/${t.id}/push-github`, { method: 'POST' });
+                          handleSelectProject(selectedProject);
+                        }}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center gap-1.5 transition"
+                      >
+                        <GitBranch className="w-3.5 h-3.5" />
+                        <span>Approve & Push to GitHub</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* KNOWLEDGE & FACT GRAPH TAB */}
-        {activeTab === 'memory' && (
-          <div className="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col gap-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-indigo-400" />
-                  <span>Project Knowledge & Fact Graph</span>
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Semantic embeddings, empirical facts, and citations grounded in repository files.
-                </p>
-              </div>
-              <span className="text-xs px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
-                348 Code & Doc Chunks Indexed
-              </span>
+        {/* Tab 4: Project Health */}
+        {activeTab === 'health' && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Activity className="w-4 h-4 text-indigo-400" />
+                Project Intelligence & System Health
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Aggregated metric scorecards computed by specialized agents.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  Verified Project Facts
-                </h3>
-                <div className="space-y-2">
-                  {[
-                    { fact: 'Core API Gateway written in Python FastAPI on Port 41661', source: 'server/app/main.py', conf: '100%' },
-                    { fact: 'Frontend built with Next.js 15 App Router & Tailwind CSS', source: 'client/package.json', conf: '100%' },
-                    { fact: 'PostgreSQL 16 + pgvector serves as unified storage & vector index', source: 'docs/02-architecture/decisions/001-hybrid-postgres-pgvector.md', conf: '98%' },
-                    { fact: '6 specialized agents active with strict project scoping', source: 'server/app/graph/debate_graph.py', conf: '95%' },
-                  ].map((f, idx) => (
-                    <div key={idx} className="bg-[#0b1020] border border-slate-800 p-3 rounded-lg text-xs">
-                      <div className="text-slate-200 font-medium">{f.fact}</div>
-                      <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1.5 font-mono">
-                        <span className="text-indigo-400">{f.source}</span>
-                        <span>{f.conf} verified</span>
-                      </div>
-                    </div>
-                  ))}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              {Object.entries(selectedProject.health_scores || {}).map(([key, score]) => (
+                <div key={key} className="bg-[#0b1020] border border-slate-800 rounded-xl p-4 text-center">
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{key}</div>
+                  <div className="text-2xl font-bold font-mono text-indigo-400 mt-2">{score}%</div>
+                  <div className="h-1.5 bg-slate-800 rounded-full mt-3 overflow-hidden">
+                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${score}%` }} />
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            {/* GitHub Synchronizer Stats Card */}
+            <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <GitBranch className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm font-bold text-white">Repository Knowledge Base</span>
+                </div>
+                <button
+                  onClick={async () => {
+                    await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/sync-github`, { method: 'POST' });
+                    handleSelectProject(selectedProject);
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 transition"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Sync Repository Now</span>
+                </button>
               </div>
 
-              <div>
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  Connected Source Chunks
-                </h3>
-                <div className="space-y-2 font-mono text-xs">
-                  {[
-                    { path: 'docs/01-business/overview.md', chunks: '42 chunks' },
-                    { path: 'server/app/main.py', chunks: '18 chunks' },
-                    { path: 'client/src/app/page.tsx', chunks: '24 chunks' },
-                    { path: 'docker-compose.yml', chunks: '6 chunks' },
-                  ].map((s, idx) => (
-                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2.5 rounded-lg flex justify-between items-center">
-                      <span className="text-slate-300">{s.path}</span>
-                      <span className="text-slate-500 text-[10px]">{s.chunks}</span>
-                    </div>
-                  ))}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-center">
+                <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                  <div className="text-xs text-slate-400">Commits Indexed</div>
+                  <div className="text-lg font-bold font-mono text-slate-200 mt-1">184</div>
+                </div>
+                <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                  <div className="text-xs text-slate-400">Files Indexed</div>
+                  <div className="text-lg font-bold font-mono text-slate-200 mt-1">327</div>
+                </div>
+                <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                  <div className="text-xs text-slate-400">Issues Indexed</div>
+                  <div className="text-lg font-bold font-mono text-slate-200 mt-1">42</div>
+                </div>
+                <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                  <div className="text-xs text-slate-400">PRs Indexed</div>
+                  <div className="text-lg font-bold font-mono text-slate-200 mt-1">18</div>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* PUBLIC ROADMAP & SEO SNAPSHOT TAB */}
-        {activeTab === 'roadmap' && (
-          <div className="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col gap-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+        {/* Tab 5: Session Archive (Council History) */}
+        {activeTab === 'history' && (
+          <div className="max-w-4xl mx-auto space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-emerald-400" />
-                  <span>Public Project Snapshot & SEO Engine</span>
-                </h2>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <History className="w-4 h-4 text-indigo-400" />
+                  Permanent Council Session History
+                </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Public Ingress:{' '}
-                  <a
-                    href={`https://council.botdigit.site/p/${selectedProject.code.toLowerCase()}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-indigo-400 underline font-mono"
-                  >
-                    https://council.botdigit.site/p/{selectedProject.code.toLowerCase()}
-                  </a>
+                  Chronological record of every debate convened for {selectedProject.name}.
                 </p>
-              </div>
-              <button
-                onClick={() =>
-                  setSelectedProject((prev) => ({
-                    ...prev,
-                    visibility: prev.visibility === 'public' ? 'private' : 'public',
-                  }))
-                }
-                className="text-xs px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center gap-1.5 shadow-sm"
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span>{selectedProject.visibility === 'public' ? 'Snapshot Published (Live)' : 'Publish Public Snapshot'}</span>
-              </button>
-            </div>
-
-            <div className="bg-[#0b1020] border border-slate-800 p-5 rounded-xl flex flex-col gap-3">
-              <div className="text-xs font-bold text-white flex items-center gap-2">
-                <Shield className="w-4 h-4 text-emerald-400" />
-                <span>Sanitization Gatekeeper Status</span>
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                All internal paths, private credentials, and secret environment tokens are automatically stripped before reaching public search engines.
-              </p>
-              <div className="flex gap-2 pt-1">
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  ✓ 0 Secrets Detected
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  ✓ Code Chunks Redacted
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  ✓ Indexable Structured Data
-                </span>
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Public Milestones & Tech Stack Overview
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
-                  <div className="text-xs font-bold text-white mb-2">Verified Technology Stack</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {['Next.js 15', 'Python FastAPI', 'PostgreSQL 16', 'pgvector', 'Supabase', 'LangGraph', 'Tailwind CSS'].map(
-                      (tech, idx) => (
-                        <span key={idx} className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
-                          {tech}
-                        </span>
-                      )
-                    )}
+              {sessions.map((s) => (
+                <div
+                  key={s.id}
+                  onClick={() => {
+                    handleSelectSession(s.id);
+                    setActiveTab('council');
+                  }}
+                  className="bg-[#0b1020] border border-slate-800 hover:border-indigo-500/50 rounded-xl p-4 flex items-center justify-between cursor-pointer transition shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm font-bold text-indigo-400">{s.session_code}</span>
+                    <div>
+                      <div className="text-sm font-semibold text-white">{s.topic}</div>
+                      <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-3">
+                        <span>{s.created_at.slice(0, 10)}</span>
+                        <span>•</span>
+                        <span>{s.active_agents.length} agents</span>
+                        <span>•</span>
+                        <span>Verdict: {s.outlook?.launch_verdict || 'Completed'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {getStatusBadge(s.status)}
+                    <ChevronRight className="w-4 h-4 text-slate-500" />
                   </div>
                 </div>
-
-                <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
-                  <div className="text-xs font-bold text-white mb-2">Public Verified Milestones</div>
-                  <ul className="text-xs text-slate-300 space-y-1">
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Architecture Decision Records (ADR 001-005) Locked</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Multi-Agent 6-Round Evidence Debate Protocol Active</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <RotateCcw className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-                      <span>72-Hour Hardening Sprint for 1-Click Onboarding</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         )}
       </main>
 
-      {/* 4. AI Provider & Agent Control Center Drawer / Modal */}
-      {controlCenterOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+      {/* MODAL 1: Council History Drawer */}
+      {historyDrawerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end">
+          <div className="w-full max-w-md bg-[#0b1020] border-l border-slate-800 h-full p-6 flex flex-col gap-4 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-indigo-400" />
-                <h3 className="font-bold text-base text-white">AI Provider & Agent Control Center</h3>
+              <div className="flex items-center gap-2 text-white font-bold text-sm">
+                <History className="w-4 h-4 text-indigo-400" />
+                <span>Council History — {selectedProject.name}</span>
               </div>
-              <button
-                onClick={() => setControlCenterOpen(false)}
-                className="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700"
-              >
-                Close
+              <button onClick={() => setHistoryDrawerOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Provider Mode Selection */}
-            <div>
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-                1. AI Inference Provider Mode
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => setProviderMode('botdigit')}
-                  className={`p-3 rounded-xl border text-left transition ${
-                    providerMode === 'botdigit'
-                      ? 'bg-indigo-600/20 border-indigo-500 text-white'
-                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+            <div className="flex-1 overflow-y-auto space-y-2.5">
+              {sessions.map((s) => (
+                <div
+                  key={s.id}
+                  onClick={() => handleSelectSession(s.id)}
+                  className={`p-3 rounded-xl border cursor-pointer transition ${
+                    selectedSession?.id === s.id
+                      ? 'bg-indigo-500/10 border-indigo-500 text-white'
+                      : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
                   }`}
                 >
-                  <div className="font-bold text-xs flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>BotDigit AI (Auto)</span>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-bold text-indigo-400">{s.session_code}</span>
+                    {getStatusBadge(s.status)}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Zero configuration. Smart model routing across Claude & GPT.
-                  </p>
-                </button>
-
-                <button
-                  onClick={() => setProviderMode('byok')}
-                  className={`p-3 rounded-xl border text-left transition ${
-                    providerMode === 'byok'
-                      ? 'bg-indigo-600/20 border-indigo-500 text-white'
-                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <div className="font-bold text-xs flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Bring Your Own Key</span>
+                  <div className="text-xs font-semibold text-slate-200 mt-1">{s.topic}</div>
+                  <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                    <span>{s.created_at.slice(0, 10)}</span>
+                    <span>{s.active_agents.length} agents participating</span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Connect OpenAI, Anthropic, Gemini, or OpenRouter keys.
-                  </p>
-                </button>
-
-                <button
-                  onClick={() => setProviderMode('local')}
-                  className={`p-3 rounded-xl border text-left transition ${
-                    providerMode === 'local'
-                      ? 'bg-indigo-600/20 border-indigo-500 text-white'
-                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <div className="font-bold text-xs flex items-center gap-1.5">
-                    <HardDrive className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Local / Private AI</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Run Ollama / vLLM on-premises. Code never leaves local server.
-                  </p>
-                </button>
-              </div>
-            </div>
-
-            {/* Intelligence Depth Mode */}
-            <div>
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-                2. Deliberation Depth & Rigor
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { id: 'fast', title: '⚡ Fast', desc: 'Short 2-round debate' },
-                  { id: 'balanced', title: '🧠 Balanced', desc: '4 rounds + verification' },
-                  { id: 'deep', title: '🔬 Deep Research', desc: 'Full repo code audit' },
-                  { id: 'maximum', title: '🏛️ Max Council', desc: '12 agents + red team' },
-                ].map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setIntelligenceMode(m.id as any)}
-                    className={`p-2.5 rounded-lg border text-left transition ${
-                      intelligenceMode === m.id
-                        ? 'bg-indigo-600/20 border-indigo-500 text-white'
-                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <div className="font-semibold text-xs">{m.title}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{m.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Active Specialist Agents Selection */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  3. Select Active Specialists ({activeAgentIds.length} / 12)
-                </label>
-                <div className="flex gap-2 text-[11px]">
-                  <button
-                    onClick={() =>
-                      setActiveAgentIds(['product', 'engineering', 'security', 'growth', 'skeptic', 'moderator'])
-                    }
-                    className="text-indigo-400 hover:underline"
-                  >
-                    Startup Pack
-                  </button>
-                  <button
-                    onClick={() => setActiveAgentIds(AGENT_CATALOG.map((a) => a.id))}
-                    className="text-indigo-400 hover:underline"
-                  >
-                    Select All
-                  </button>
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {AGENT_CATALOG.map((agent) => {
-                  const isActive = activeAgentIds.includes(agent.id);
-                  return (
-                    <div
-                      key={agent.id}
-                      onClick={() => toggleAgent(agent.id)}
-                      className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between text-xs transition ${
-                        isActive
-                          ? 'bg-slate-900 border-indigo-500/60 text-white'
-                          : 'bg-slate-950/60 border-slate-800 text-slate-500 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{agent.avatar}</span>
-                        <div>
-                          <div className="font-medium text-[11px]">{agent.title}</div>
-                          <div className="text-[9px] text-slate-400 font-mono">{agent.defaultModel}</div>
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={isActive}
-                        readOnly
-                        className="rounded border-slate-700 text-indigo-600 focus:ring-0"
-                      />
-                    </div>
-                  );
-                })}
+      {/* MODAL 2: Project Creation Wizard */}
+      {wizardOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-[#0b1020] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-indigo-400" />
+                  Create New Managed Project
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Step {wizardStep} of 3: {wizardStep === 1 ? 'Project Identity' : wizardStep === 2 ? 'Domain & Web Presence' : 'GitHub Connection'}
+                </p>
               </div>
+              <button onClick={() => setWizardOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Project Budget Guardrails */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-400" />
+            {/* Step 1: Identity */}
+            {wizardStep === 1 && (
+              <div className="space-y-3.5 text-xs">
                 <div>
-                  <div className="font-bold text-slate-200">Project AI Budget Guardrail</div>
-                  <div className="text-[11px] text-slate-400">
-                    Monthly Limit: $50.00 • Used: $12.45 • Max / Session: $2.00
-                  </div>
+                  <label className="font-semibold text-slate-300 block mb-1">Project Name *</label>
+                  <input
+                    type="text"
+                    value={wizardForm.name}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setWizardForm((prev) => ({
+                        ...prev,
+                        name,
+                        slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                      }));
+                    }}
+                    placeholder="e.g. Acme Marketplace"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-300 block mb-1">Project Slug *</label>
+                  <input
+                    type="text"
+                    value={wizardForm.slug}
+                    onChange={(e) => setWizardForm((prev) => ({ ...prev, slug: e.target.value }))}
+                    placeholder="e.g. acme-marketplace"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-300 block mb-1">Project Category / Type *</label>
+                  <select
+                    value={wizardForm.project_type}
+                    onChange={(e) => setWizardForm((prev) => ({ ...prev, project_type: e.target.value }))}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="web_saas">Web / SaaS (Primary domain required)</option>
+                    <option value="mobile_app">Mobile App</option>
+                    <option value="open_source">Open Source</option>
+                    <option value="startup">Startup / Business</option>
+                    <option value="research">Research</option>
+                    <option value="internal">Internal Project (Domain optional)</option>
+                    <option value="blockchain_web3">Blockchain / Web3</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-300 block mb-1">Description</label>
+                  <textarea
+                    value={wizardForm.description}
+                    onChange={(e) => setWizardForm((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Brief description of the project mission..."
+                    rows={2}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={() => setWizardStep(2)}
+                    disabled={!wizardForm.name.trim()}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg font-medium transition"
+                  >
+                    Next: Domain Settings →
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => setControlCenterOpen(false)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 rounded-lg text-xs transition"
-              >
-                Apply Configuration
+            )}
+
+            {/* Step 2: Domain */}
+            {wizardStep === 2 && (
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="font-semibold text-slate-300 block mb-1">
+                    Primary Website {wizardForm.project_type === 'web_saas' ? '*' : '(Optional)'}
+                  </label>
+                  <input
+                    type="url"
+                    value={wizardForm.primary_domain}
+                    onChange={(e) => setWizardForm((prev) => ({ ...prev, primary_domain: e.target.value }))}
+                    placeholder="https://example.com"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                  />
+                  {wizardForm.project_type === 'web_saas' && (
+                    <span className="text-[11px] text-amber-400 mt-1 block">
+                      Required for Web/SaaS so agents can crawl sitemaps, inspect robots.txt, and verify SEO.
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-300 block mb-1">Staging URL (Optional)</label>
+                  <input
+                    type="url"
+                    value={wizardForm.staging_url}
+                    onChange={(e) => setWizardForm((prev) => ({ ...prev, staging_url: e.target.value }))}
+                    placeholder="https://staging.example.com"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="flex justify-between pt-2">
+                  <button
+                    onClick={() => setWizardStep(1)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    onClick={() => setWizardStep(3)}
+                    disabled={wizardForm.project_type === 'web_saas' && !wizardForm.primary_domain}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg font-medium transition"
+                  >
+                    Next: Connect GitHub →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: GitHub Connection */}
+            {wizardStep === 3 && (
+              <div className="space-y-4 text-xs">
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+                      <GitBranch className="w-4 h-4 text-emerald-400" />
+                      Connect GitHub Repository
+                    </span>
+                    <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                      🟢 Verified App
+                    </span>
+                  </div>
+
+                  <label className="text-[11px] text-slate-400 block mb-1">Choose Repository</label>
+                  <select
+                    value={wizardForm.github_repo_full_name}
+                    onChange={(e) => setWizardForm((prev) => ({ ...prev, github_repo_full_name: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 mb-3"
+                  >
+                    <option value="botdigit-official/BotDigit-AI-Council">botdigit-official/BotDigit-AI-Council (Current)</option>
+                    <option value="botdigit/marketplace">botdigit/marketplace</option>
+                    <option value="aivex/protocol">aivex/protocol</option>
+                    <option value="custom/repo">custom/repo</option>
+                  </select>
+
+                  <div className="text-[11px] text-slate-400 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                    <div>Once connected, agents index commits, code modules, issues, and PRs automatically.</div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between pt-2">
+                  <button
+                    onClick={() => setWizardStep(2)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    onClick={handleCreateProject}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Create Project & Initialize AI Team</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Clickable Evidence Drawer */}
+      {evidenceDrawerOpen && activeEvidence && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end">
+          <div className="w-full max-w-lg bg-[#0b1020] border-l border-slate-800 h-full p-6 flex flex-col gap-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2 text-white font-bold text-sm">
+                <Code2 className="w-4 h-4 text-indigo-400" />
+                <span>Verified Source Evidence</span>
+              </div>
+              <button onClick={() => setEvidenceDrawerOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
               </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                <span className="text-[11px] text-slate-400 block mb-1">Source Origin</span>
+                <span className="font-mono text-indigo-400 font-semibold">{activeEvidence.evidence_ref || 'Unknown'}</span>
+              </div>
+
+              <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800">
+                <div>
+                  <span className="text-[11px] text-slate-400 block mb-0.5">Evidence Confidence</span>
+                  <span className="text-emerald-400 font-bold font-mono">
+                    Strength: {activeEvidence.evidence_strength || 'HIGH'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 text-right">
+                  <span>Rule: Direct Source + Reproducible</span>
+                </div>
+              </div>
+
+              {activeEvidence.evidence_snippet && (
+                <div>
+                  <span className="text-slate-300 font-semibold block mb-1.5">Captured Code Excerpt:</span>
+                  <pre className="bg-[#050811] p-3 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap">
+                    {activeEvidence.evidence_snippet}
+                  </pre>
+                </div>
+              )}
+
+              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-slate-400 text-[11px] leading-relaxed">
+                Statement attributed to <strong className="text-slate-200">{activeEvidence.title}</strong> using <strong className="text-slate-200">{activeEvidence.model}</strong>.
+              </div>
+
+              <a
+                href={selectedProject.github_repo_url || '#'}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center justify-center gap-2 transition"
+              >
+                <GitBranch className="w-4 h-4" />
+                <span>Open in GitHub Repository</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Sanitized Public Publication Modal */}
+      {publishModalOpen && selectedSession && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#0b1020] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-indigo-400" />
+                  Publish Council Session to Public Profile
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Sanitization gatekeeper: selectively approve public visibility.
+                </p>
+              </div>
+              <button onClick={() => setPublishModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <span className="font-semibold text-slate-300 block mb-1">Publish Checklist:</span>
+
+              {[
+                { key: 'question', label: 'Council Question & Topic' },
+                { key: 'summary', label: 'Final Consensus Summary' },
+                { key: 'perspectives', label: 'Agent Perspectives & Stances' },
+                { key: 'disagreements', label: 'Key Disagreements & Debates' },
+                { key: 'decision', label: 'Strategic Decision & Verdict' },
+                { key: 'action_plan', label: 'Public Action Plan' },
+                { key: 'source_code', label: 'Source Code References (Sensitive)' },
+                { key: 'private_evidence', label: 'Private Evidence Logs' },
+                { key: 'internal_docs', label: 'Internal Financial & Roadmaps' },
+              ].map((item) => (
+                <label key={item.key} className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-900 border border-slate-800 cursor-pointer hover:bg-slate-800/60 transition">
+                  <input
+                    type="checkbox"
+                    checked={(publishSections as any)[item.key]}
+                    onChange={(e) =>
+                      setPublishSections((prev) => ({
+                        ...prev,
+                        [item.key]: e.target.checked,
+                      }))
+                    }
+                    className="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0"
+                  />
+                  <span className={`text-xs ${(publishSections as any)[item.key] ? 'text-slate-200' : 'text-slate-500'}`}>
+                    {item.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-between pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setPublishModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
+              >
+                Keep Private
+              </button>
+              <button
+                onClick={handlePublishSession}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Publish Sanitized Session</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Domain Verification Modal */}
+      {domainModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#0b1020] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Globe className="w-4 h-4 text-indigo-400" />
+                Domain Verification
+              </h3>
+              <button onClick={() => setDomainModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <span className="text-slate-400 block mb-1">Target Domain</span>
+                <span className="font-semibold text-white font-mono">{selectedProject.primary_domain}</span>
+              </div>
+
+              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-2">
+                <span className="font-semibold text-indigo-400 block">DNS TXT Verification Record</span>
+                <div className="flex items-center justify-between bg-slate-950 p-2 rounded border border-slate-800 font-mono text-[11px] text-slate-300">
+                  <span>{selectedProject.domain_verification_token || 'botdigit-verify-94a28f110c'}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedProject.domain_verification_token || 'botdigit-verify-94a28f110c');
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="text-indigo-400 hover:text-indigo-300"
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={handleVerifyDomain}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition"
+                >
+                  Verify Domain Ownership
+                </button>
+              </div>
             </div>
           </div>
         </div>

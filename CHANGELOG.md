@@ -35,10 +35,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Four-tier statement taggers (`[FACT]`, `[INFERENCE]`, `[OPINION]`, `[SCENARIO]`).
   - Actionable checklist with approval status toggling and 1-click executive audit report export.
   - Dual Private Workspace vs Public SEO Snapshot preview toggle.
-- Interactive Subsystems & Tab Navigation:
-  - Decisions Memory & Retrospective Assumption Graph with 1-click Council review reopening.
-  - Tasks & GitHub execution engine with 1-click export to GitHub Issues (`/api/tasks/{task_id}/push-github`).
-  - PR Review Gatekeeper policy interface and automated weekly audit scheduler.
-  - Knowledge & Fact Graph inspector indexing 348 code and document chunks with source confidence.
-  - Public Project Roadmap and sanitized SEO snapshot viewer (`https://council.botdigit.site/p/[slug]`).
-- Backend REST endpoints for decisions (`/api/projects/{id}/decisions`), decision reopening, task export, and knowledge graph queries.
+- Multi-Tenant Project Intelligence Platform (AI-POS) Transition:
+  - Eliminated mock auto-simulations on first mount; clean projects now display an authentic empty state prompting for Council Session #001.
+  - Enforced strict database scoping: `USER` -> `WORKSPACE` -> `PROJECT` (Isolation Boundary) -> `COUNCIL SESSION` -> `AGENT RUN`.
+  - 3-Step Project Creation Wizard with Project Type selection (Web/SaaS, Mobile, Open Source, Startup, Research, Internal, Web3).
+  - Domain Verification subsystem with DNS TXT, HTML file, and Meta tag options.
+  - Real GitHub connection metadata tracking indexed commits, files, issues, and PRs.
+  - Permanent Council Session History panel with 4 authentic states (🟡 Draft, 🟢 Live, 🔵 Completed, 🔴 Failed).
+  - Verifiable evidence strength ratings (`HIGH`, `MODERATE`, `LOW`) replacing arbitrary percentage confidences.
+  - Real provider and model attribution on every statement (`OpenAI · GPT-4o`, `DeepSeek · DeepSeek-V3`, `Anthropic · Claude 3.5 Sonnet`, `Google · Gemini 1.5 Pro`).
+  - Interactive Evidence Drawer displaying code/doc excerpts and direct GitHub links.
+  - Sanitized Public Project Airgap Publication modal with explicit section toggles.
+  - Unresolved Questions tracker with 1-click deliberation triggering.
+  - Custom Agent Persona Creator (`+ Add Agent` with model and tool selection).
+

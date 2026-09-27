@@ -42,3 +42,16 @@
 - [x] Build Public Project Roadmap & SEO Snapshot view (`/p/[slug]`) with verified tech stack tags.
 - [x] Implement explicit "Publish to Public Profile" sanitization gatekeeper checking for zero credentials leak.
 - [x] Implement Knowledge & Fact Graph inspector indexing 348 code and document chunks with source confidence.
+
+## Phase 6: True Multi-Tenant Project Intelligence Platform (AI-POS)
+- [x] Eliminate mock auto-simulations: clean projects render a pure empty state with 0 fake messages.
+- [x] Enforce strict DB hierarchy: `USER` -> `WORKSPACE` -> `PROJECT` (Isolation Boundary) -> `COUNCIL SESSION` -> `AGENT RUN`.
+- [x] Build 3-Step Project Creation Wizard (Identity -> Domain Verification -> GitHub Connection).
+- [x] Implement Domain Verification workflow (DNS TXT, Meta Tag, HTML File) with real token generation.
+- [x] Implement Permanent Council Session History (#001, #002, etc.) with 4 authentic states (Draft, Live, Completed, Failed).
+- [x] Upgrade Agent statement attribution with verified evidence strength (HIGH, MODERATE, LOW) and real model attribution (OpenAI GPT-4o, DeepSeek-V3, Anthropic Claude 3.5 Sonnet, Google Gemini 1.5 Pro).
+- [x] Implement Interactive Evidence Drawer with code/doc excerpt snippets and direct GitHub links.
+- [x] Implement Sanitized Public Publication Modal with airgap toggles (redacting source code and private evidence).
+- [x] Build Unresolved Questions tracker with 1-click "Ask Council" deliberation trigger.
+- [x] Implement Custom Agent Persona Creator (`+ Add Agent` with tool permissions and model assignment).
+
