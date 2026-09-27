@@ -824,3 +824,135 @@ async def get_project_knowledge(project_id: str, db: AsyncSession = Depends(get_
     }
 
 
+# ==========================================
+# Agency Agents Catalog & Ecosystem Endpoints
+# ==========================================
+from app.catalog import AGENCY_CATALOG, AGENT_PACKS, AGENCY_AGENTS_SOURCE
+
+
+@app.get("/api/agent-catalog", tags=["Agency Agents"])
+async def get_agent_catalog():
+    """Retrieve the Agency Agents specialist catalog, curated packs, and upstream metadata."""
+    return {
+        "source": AGENCY_AGENTS_SOURCE,
+        "total_agents": len(AGENCY_CATALOG),
+        "agents": list(AGENCY_CATALOG.values()),
+        "packs": list(AGENT_PACKS.values()),
+    }
+
+
+@app.get("/api/agent-catalog/{agent_id}", tags=["Agency Agents"])
+async def get_agent_detail(agent_id: str):
+    """Retrieve full agent definition with local installation commands for Claude Code, Cursor, Codex, and Gemini CLI."""
+    if agent_id not in AGENCY_CATALOG:
+        raise HTTPException(status_code=404, detail="Specialist agent not found in Agency catalog.")
+    return AGENCY_CATALOG[agent_id]
+
+
+@app.get("/api/agent-catalog/packs/{pack_id}", tags=["Agency Agents"])
+async def get_pack_detail(pack_id: str):
+    """Retrieve details of a curated squad pack."""
+    if pack_id not in AGENT_PACKS:
+        raise HTTPException(status_code=404, detail="Agent squad pack not found.")
+    return AGENT_PACKS[pack_id]
+
+
+class AttachAgentRequest(BaseModel):
+    agent_id: str
+
+
+@app.post("/api/projects/{project_id}/attach-agent", tags=["Agency Agents"])
+async def attach_agent_to_project(project_id: str, payload: AttachAgentRequest, db: AsyncSession = Depends(get_db)):
+    """Attaches an Agency Agent specialist to the active project AI team."""
+    project = await resolve_project(project_id, db)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found.")
+
+    if payload.agent_id not in AGENCY_CATALOG:
+        raise HTTPException(status_code=404, detail="Agent not found in catalog.")
+
+    agent_def = AGENCY_CATALOG[payload.agent_id]
+
+    # Check if already attached as custom agent
+    existing = await db.execute(
+        select(CustomAgent).where(
+            (CustomAgent.project_id == project.id) & (CustomAgent.name == agent_def["name"])
+        )
+    )
+    if existing.scalar_one_or_none():
+        return {"status": "already_attached", "message": f"{agent_def['name']} is already on this project's AI team."}
+
+    # Add as CustomAgent persona
+    agent = CustomAgent(
+        project_id=project.id,
+        name=agent_def["name"],
+        role=agent_def["summary"],
+        instructions="\n".join(agent_def["responsibilities"]),
+        tools=["web", "project_memory", "documents", "github"],
+        model="Claude 3.5 Sonnet",
+        visibility="private",
+        avatar=agent_def["avatar"],
+        color=agent_def["color"],
+    )
+    db.add(agent)
+    await db.commit()
+
+    return {
+        "status": "attached",
+        "project_id": project.id,
+        "agent": agent_def["name"],
+        "division": agent_def["division"],
+        "message": f"{agent_def['name']} attached to {project.name}'s AI team.",
+    }
+
+
+class ApplyPackRequest(BaseModel):
+    pack_id: str
+
+
+@app.post("/api/projects/{project_id}/apply-pack", tags=["Agency Agents"])
+async def apply_pack_to_project(project_id: str, payload: ApplyPackRequest, db: AsyncSession = Depends(get_db)):
+    """Applies a curated agent pack (e.g. SaaS Launch Team) to the project."""
+    project = await resolve_project(project_id, db)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found.")
+
+    if payload.pack_id not in AGENT_PACKS:
+        raise HTTPException(status_code=404, detail="Squad pack not found.")
+
+    pack = AGENT_PACKS[payload.pack_id]
+    attached = []
+
+    for agent_id in pack["agents"]:
+        if agent_id in AGENCY_CATALOG:
+            agent_def = AGENCY_CATALOG[agent_id]
+            existing = await db.execute(
+                select(CustomAgent).where(
+                    (CustomAgent.project_id == project.id) & (CustomAgent.name == agent_def["name"])
+                )
+            )
+            if not existing.scalar_one_or_none():
+                agent = CustomAgent(
+                    project_id=project.id,
+                    name=agent_def["name"],
+                    role=agent_def["summary"],
+                    instructions="\n".join(agent_def["responsibilities"]),
+                    tools=["web", "project_memory", "documents", "github"],
+                    model="Claude 3.5 Sonnet",
+                    visibility="private",
+                    avatar=agent_def["avatar"],
+                    color=agent_def["color"],
+                )
+                db.add(agent)
+                attached.append(agent_def["name"])
+
+    await db.commit()
+    return {
+        "status": "pack_applied",
+        "pack_name": pack["name"],
+        "agents_added": attached,
+        "message": f"Successfully equipped {pack['name']} with {len(attached)} specialists.",
+    }
+
+
+

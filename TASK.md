@@ -55,3 +55,12 @@
 - [x] Build Unresolved Questions tracker with 1-click "Ask Council" deliberation trigger.
 - [x] Implement Custom Agent Persona Creator (`+ Add Agent` with tool permissions and model assignment).
 
+## Phase 7: Agency Agents Ecosystem Integration & Local-First Execution
+- [x] Decouple `AgentDefinition` from `AgentRuntime` (ADR-006).
+- [x] Implement Agency Agents Catalog (`server/app/catalog.py`) with official upstream personas and MIT license attribution.
+- [x] Build Dual-Mode execution: Option A (Run Locally via Claude Code, Cursor, Codex, Gemini CLI) vs Option B (Add to Project Council).
+- [x] Build Curated Squad Packs (SaaS Launch Team, Startup MVP, Security Audit, SEO Growth) with 1-click project equipping.
+- [x] Implement Local Agent Bridge architecture for enterprise privacy-first execution without source code exfiltration.
+- [x] Add REST endpoints (`/api/agent-catalog`, `/api/projects/{id}/attach-agent`, `/api/projects/{id}/apply-pack`).
+
+

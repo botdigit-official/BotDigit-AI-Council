@@ -48,4 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Sanitized Public Project Airgap Publication modal with explicit section toggles.
   - Unresolved Questions tracker with 1-click deliberation triggering.
   - Custom Agent Persona Creator (`+ Add Agent` with model and tool selection).
+- Agency Agents Ecosystem Integration (ADR-006):
+  - Created open-source Agency Agents catalog (`server/app/catalog.py`) with upstream attribution to `https://github.com/msitarzewski/agency-agents` (MIT License).
+  - Decoupled `AgentDefinition` from `AgentRuntime`: BotDigit provides project intelligence & memory; LLM provides reasoning; Agency Agents provides specialty instructions.
+  - Dual Execution Modes: Option A (Run Locally via Claude Code, Cursor, Codex, Gemini CLI, OpenCode) with zero server code transmission; Option B (Add Agent to BotDigit Project).
+  - Curated Agent Squad Packs: SaaS Launch Team, Startup MVP, Security Audit, and SEO Growth Squad with 1-click project equipping.
+  - Local Agent Bridge privacy architecture preserving complete on-premise source code control.
+  - Added REST endpoints: `GET /api/agent-catalog`, `POST /api/projects/{id}/attach-agent`, `POST /api/projects/{id}/apply-pack`.
+
 

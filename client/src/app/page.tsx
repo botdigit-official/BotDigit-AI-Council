@@ -44,6 +44,11 @@ import {
   Code2,
   Eye,
   AlertCircle,
+  Download,
+  Laptop,
+  Image as ImageIcon,
+  FileText,
+  Boxes,
 } from 'lucide-react';
 
 // Type Definitions
@@ -118,7 +123,7 @@ interface AgentMessage {
   classification: 'FACT' | 'INFERENCE' | 'OPINION' | 'SCENARIO';
   content: string;
   evidence_ref?: string | null;
-  evidence_source?: string;
+  evidence_source?: 'github' | 'domain' | 'visual' | 'internal_doc' | 'runtime';
   evidence_strength?: 'HIGH' | 'MODERATE' | 'LOW';
   evidence_snippet?: string | null;
   provider?: string;
@@ -159,18 +164,32 @@ interface UnresolvedQuestion {
   context_summary?: string;
 }
 
-const AGENT_CATALOG = [
-  { id: 'moderator', title: 'Chief AI / Moderator', avatar: '🧠', defaultModel: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
-  { id: 'product', title: 'Product Manager', avatar: '👨‍💼', defaultModel: 'GPT-4o', provider: 'OpenAI' },
-  { id: 'engineering', title: 'Senior Engineer', avatar: '🧑‍💻', defaultModel: 'DeepSeek-V3', provider: 'DeepSeek' },
-  { id: 'security', title: 'Security Specialist', avatar: '🔐', defaultModel: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
-  { id: 'growth', title: 'Growth Lead', avatar: '📈', defaultModel: 'Gemini 1.5 Pro', provider: 'Google' },
-  { id: 'skeptic', title: 'Skeptic / Red Team', avatar: '🕵️', defaultModel: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
-  { id: 'architect', title: 'System Architect', avatar: '🏗️', defaultModel: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
-  { id: 'seo', title: 'SEO & Content', avatar: '🔎', defaultModel: 'Gemini 1.5 Pro', provider: 'Google' },
-  { id: 'ux', title: 'UX Specialist', avatar: '🎨', defaultModel: 'Gemini 1.5 Flash', provider: 'Google' },
-  { id: 'finance', title: 'Finance & Unit Economics', avatar: '💰', defaultModel: 'GPT-4o', provider: 'OpenAI' },
-];
+interface AgencyAgentItem {
+  id: string;
+  name: string;
+  division: string;
+  avatar: string;
+  color: string;
+  summary: string;
+  specialization: string[];
+  personality: string[];
+  responsibilities: string[];
+  deliverables: string[];
+  success_metrics: string[];
+  works_with: string[];
+  upstream_file: string;
+  local_install: Record<string, string>;
+}
+
+interface AgentPackItem {
+  id: string;
+  name: string;
+  avatar: string;
+  summary: string;
+  agents: string[];
+  recommended_for: string[];
+  deliverable: string;
+}
 
 const SUGGESTED_QUESTIONS = [
   'Review project architecture',
@@ -185,7 +204,7 @@ export default function CouncilPlatform() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'council' | 'decisions' | 'tasks' | 'history' | 'health'>('council');
+  const [activeTab, setActiveTab] = useState<'council' | 'library' | 'bridge' | 'decisions' | 'tasks' | 'health' | 'history'>('council');
 
   // Council Sessions State
   const [sessions, setSessions] = useState<CouncilSession[]>([]);
@@ -194,6 +213,15 @@ export default function CouncilPlatform() {
   const [isDebating, setIsDebating] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
   const [newQuestion, setNewQuestion] = useState('');
+
+  // Agency Agents & Packs State
+  const [agencyAgents, setAgencyAgents] = useState<AgencyAgentItem[]>([]);
+  const [agencyPacks, setAgencyPacks] = useState<AgentPackItem[]>([]);
+  const [selectedAgencyAgent, setSelectedAgencyAgent] = useState<AgencyAgentItem | null>(null);
+  const [agencyModalMode, setAgencyModalMode] = useState<'local' | 'detail'>('detail');
+  const [localToolTab, setLocalToolTab] = useState<'claude_code' | 'cursor' | 'gemini_cli' | 'opencode'>('claude_code');
+  const [divisionFilter, setDivisionFilter] = useState<string>('All');
+  const [catalogSearch, setCatalogSearch] = useState<string>('');
 
   // Project Artifacts State
   const [decisions, setDecisions] = useState<DecisionItem[]>([]);
@@ -208,7 +236,6 @@ export default function CouncilPlatform() {
   const [activeEvidence, setActiveEvidence] = useState<AgentMessage | null>(null);
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [domainModalOpen, setDomainModalOpen] = useState(false);
-  const [addAgentModalOpen, setAddAgentModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Project Creation Wizard Form
@@ -235,20 +262,12 @@ export default function CouncilPlatform() {
     internal_docs: false,
   });
 
-  // Custom Agent Form
-  const [customAgentForm, setCustomAgentForm] = useState({
-    name: 'Blockchain Economist',
-    role: 'Tokenomics & Liquidity Architect',
-    instructions: 'Analyze token release schedules, liquidity pool depth, and market bonding curves.',
-    tools: ['web', 'project_memory', 'github'],
-    model: 'Claude 3.5 Sonnet',
-  });
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Initial Load: Fetch Projects
+  // 1. Initial Load: Fetch Projects & Agency Agents Catalog
   useEffect(() => {
     fetchProjects();
+    fetchAgencyCatalog();
   }, []);
 
   const fetchProjects = async () => {
@@ -258,12 +277,24 @@ export default function CouncilPlatform() {
         const data = await res.json();
         setProjects(data);
         if (data.length > 0 && !selectedProject) {
-          // Default to first project
           handleSelectProject(data[0]);
         }
       }
     } catch (err) {
       console.error('Failed to load projects:', err);
+    }
+  };
+
+  const fetchAgencyCatalog = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:41661/api/agent-catalog');
+      if (res.ok) {
+        const data = await res.json();
+        setAgencyAgents(data.agents || []);
+        setAgencyPacks(data.packs || []);
+      }
+    } catch (err) {
+      console.error('Failed to load agency catalog:', err);
     }
   };
 
@@ -282,7 +313,6 @@ export default function CouncilPlatform() {
         setSessions(sData);
 
         if (sData.length > 0) {
-          // Load latest real session
           handleSelectSession(sData[0].id);
         }
       }
@@ -358,7 +388,6 @@ export default function CouncilPlatform() {
         eventSource.addEventListener('debate_done', () => {
           setIsDebating(false);
           eventSource.close();
-          // Reload sessions list and project state
           handleSelectProject(selectedProject);
         });
 
@@ -399,7 +428,6 @@ export default function CouncilPlatform() {
         setWizardOpen(false);
         setWizardStep(1);
         await fetchProjects();
-        // Load the new project
         const fullProjRes = await fetch(`http://127.0.0.1:41661/api/projects/${newProj.id}`);
         if (fullProjRes.ok) {
           const fullProj = await fullProjRes.json();
@@ -447,33 +475,38 @@ export default function CouncilPlatform() {
     }
   };
 
-  // 8. Reopen Decision
-  const handleReopenDecision = async (decisionId: string) => {
+  // 8. Attach Agency Agent to Project AI Team
+  const handleAttachAgent = async (agentId: string) => {
     if (!selectedProject) return;
     try {
-      const res = await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/decisions/${decisionId}/reopen`, {
+      const res = await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/attach-agent`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: agentId }),
       });
       if (res.ok) {
+        setSelectedAgencyAgent(null);
         handleSelectProject(selectedProject);
       }
     } catch (err) {
-      console.error('Reopen decision error:', err);
+      console.error('Error attaching agent:', err);
     }
   };
 
-  // 9. Ask Unresolved Question
-  const handleAskUnresolvedQuestion = async (questionId: string) => {
+  // 9. Apply Curated Pack to Project
+  const handleApplyPack = async (packId: string) => {
     if (!selectedProject) return;
     try {
-      const res = await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/unresolved-questions/${questionId}/ask`, {
+      const res = await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/apply-pack`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pack_id: packId }),
       });
       if (res.ok) {
         handleSelectProject(selectedProject);
       }
     } catch (err) {
-      console.error('Ask question error:', err);
+      console.error('Error applying pack:', err);
     }
   };
 
@@ -505,6 +538,17 @@ export default function CouncilPlatform() {
         return <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40">🔴 FAILED</span>;
     }
   };
+
+  // Filter Agency Agents
+  const filteredAgencyAgents = agencyAgents.filter((a) => {
+    const matchesDiv = divisionFilter === 'All' || a.division.toLowerCase() === divisionFilter.toLowerCase();
+    const matchesSearch =
+      catalogSearch === '' ||
+      a.name.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+      a.summary.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+      a.specialization.some((s) => s.toLowerCase().includes(catalogSearch.toLowerCase()));
+    return matchesDiv && matchesSearch;
+  });
 
   if (!selectedProject) {
     return (
@@ -659,7 +703,7 @@ export default function CouncilPlatform() {
               <span>•</span>
               <span>GitHub: <strong className="text-slate-200">{selectedProject.github_connected ? 'Connected' : 'Disconnected'}</strong></span>
               <span>•</span>
-              <span>AI Team: <strong className="text-indigo-400">6 / 12 Personas</strong></span>
+              <span>AI Team: <strong className="text-indigo-400">Core Council + Agency Specialists</strong></span>
               <span>•</span>
               <span>Sessions Logged: <strong className="text-white font-mono">{sessions.length}</strong></span>
               <span>•</span>
@@ -668,10 +712,12 @@ export default function CouncilPlatform() {
           </div>
 
           {/* Subsystem Navigation Tabs */}
-          <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl text-xs">
+          <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl text-xs flex-wrap">
             {(
               [
                 { id: 'council', label: 'Council Room', icon: Sparkles },
+                { id: 'library', label: 'Agency Agent Library', icon: Users },
+                { id: 'bridge', label: 'Local Bridge (Privacy)', icon: Laptop },
                 { id: 'decisions', label: 'Decisions Memory', icon: BookOpen },
                 { id: 'tasks', label: 'Tasks & GitHub', icon: CheckCircle2 },
                 { id: 'health', label: 'Project Health', icon: Activity },
@@ -700,9 +746,10 @@ export default function CouncilPlatform() {
 
       {/* 3. Main Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6">
+        {/* Tab 1: Council Room */}
         {activeTab === 'council' && (
           <>
-            {/* Condition A: Clean Project with 0 sessions (NO Fake Discussions!) */}
+            {/* Condition A: Clean Project with 0 sessions */}
             {sessions.length === 0 && !isDebating ? (
               <div className="max-w-3xl mx-auto py-12 flex flex-col items-center text-center">
                 <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-3xl mb-4">
@@ -840,7 +887,7 @@ export default function CouncilPlatform() {
                             <span className="text-[10px] text-slate-400">· {selectedProject.name}</span>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {/* Classification Badge */}
                             <span className={`text-[10px] font-mono px-2 py-0.5 rounded border font-semibold ${getBadgeStyle(m.classification)}`}>
                               [{m.classification}]
@@ -985,7 +1032,10 @@ export default function CouncilPlatform() {
                             )}
                           </div>
                           <button
-                            onClick={() => handleAskUnresolvedQuestion(q.id)}
+                            onClick={async () => {
+                              await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/unresolved-questions/${q.id}/ask`, { method: 'POST' });
+                              handleSelectProject(selectedProject);
+                            }}
                             className="px-2.5 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-[11px] whitespace-nowrap font-medium transition"
                           >
                             Ask Council
@@ -1024,7 +1074,252 @@ export default function CouncilPlatform() {
           </>
         )}
 
-        {/* Tab 2: Decisions Memory */}
+        {/* Tab 2: Agency Agent Library */}
+        {activeTab === 'library' && (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Users className="w-4 h-4 text-indigo-400" />
+                  Agency Agents Specialist Library
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Open-source specialist personas from{' '}
+                  <a
+                    href="https://github.com/msitarzewski/agency-agents"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-400 underline hover:text-indigo-300 font-mono"
+                  >
+                    Agency Agents (MIT License)
+                  </a>
+                  . Run locally on your machine or equip into your project council.
+                </p>
+              </div>
+
+              {/* Search & Division Filter */}
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    placeholder="Search specialists (e.g. Next.js, OWASP)..."
+                    className="bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-60"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Curated Squad Packs */}
+            <div>
+              <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Boxes className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Curated Specialist Squad Packs (1-Click Project Setup)</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {agencyPacks.map((pack) => (
+                  <div key={pack.id} className="bg-[#0b1020] border border-slate-800 hover:border-slate-700 rounded-xl p-4 flex flex-col justify-between shadow-sm">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{pack.avatar}</span>
+                        <span className="text-sm font-bold text-white">{pack.name}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                        {pack.summary}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {pack.agents.map((ag) => (
+                          <span key={ag} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
+                            {ag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleApplyPack(pack.id)}
+                      className="mt-4 w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Equip Squad to Project</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Division Filters */}
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+              {['All', 'Engineering', 'Design', 'Security', 'Marketing'].map((div) => (
+                <button
+                  key={div}
+                  onClick={() => setDivisionFilter(div)}
+                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                    divisionFilter === div
+                      ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                      : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {div}
+                </button>
+              ))}
+            </div>
+
+            {/* Specialist Agents Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredAgencyAgents.map((agent) => (
+                <div
+                  key={agent.id}
+                  className="bg-[#0b1020] border border-slate-800 hover:border-slate-700 rounded-xl p-5 flex flex-col justify-between shadow-sm transition"
+                >
+                  <div>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-2xl">{agent.avatar}</span>
+                        <div>
+                          <div className="text-sm font-bold text-white">{agent.name}</div>
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                            {agent.division}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-500">MIT</span>
+                    </div>
+
+                    <p className="text-xs text-slate-300 mt-3 leading-relaxed">
+                      {agent.summary}
+                    </p>
+
+                    {/* Specialization Tags */}
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {agent.specialization.map((spec) => (
+                        <span key={spec} className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-indigo-300">
+                          {spec}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Works With */}
+                    <div className="mt-3 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 flex items-center gap-1.5">
+                      <span>Works with:</span>
+                      <strong className="text-slate-300 font-mono">Claude Code · Cursor · Codex · Gemini CLI</strong>
+                    </div>
+                  </div>
+
+                  {/* Dual Action Buttons */}
+                  <div className="mt-4 pt-3 border-t border-slate-800 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedAgencyAgent(agent);
+                        setAgencyModalMode('local');
+                      }}
+                      className="flex-1 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-medium text-xs flex items-center justify-center gap-1.5 transition"
+                    >
+                      <Laptop className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Run Locally</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleAttachAgent(agent.id)}
+                      className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add to Project</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Local Agent Bridge (Privacy-First Architecture) */}
+        {activeTab === 'bridge' && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="pb-4 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Laptop className="w-4 h-4 text-emerald-400" />
+                Local Agent Bridge — Run Your AI Team Privately
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Your source code stays on your machine. Your API keys stay with you. BotDigit provides project intelligence, memory, and orchestration without storing your codebase.
+              </p>
+            </div>
+
+            {/* Architecture Comparison Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-4">
+                <div className="text-xs font-bold text-white flex items-center gap-2 mb-2">
+                  <Lock className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>1. Private Project</span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Source code stays 100% on your machine. BotDigit records council history, immutable decisions, and high-level evidence hashes only.
+                </p>
+              </div>
+
+              <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-4">
+                <div className="text-xs font-bold text-white flex items-center gap-2 mb-2">
+                  <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>2. Connected Project</span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Authorized GitHub repository and domain verification. Council agents crawl sitemaps, inspect PRs, and verify code facts directly.
+                </p>
+              </div>
+
+              <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-4">
+                <div className="text-xs font-bold text-white flex items-center gap-2 mb-2">
+                  <Globe className="w-3.5 h-3.5 text-blue-400" />
+                  <span>3. Public Project Profile</span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Selective sanitized airgap publication for public roadmap, approved technical decisions, and programmatic developer SEO.
+                </p>
+              </div>
+            </div>
+
+            {/* Local Tool Connect Instructions */}
+            <div className="bg-[#0b1020] border border-slate-800 rounded-xl p-5 space-y-4">
+              <div className="text-xs font-bold text-white flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-emerald-400" />
+                <span>Quick Setup: Connect Local Tools to BotDigit Project Context</span>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                  <span className="font-semibold text-slate-200 block mb-1">Step 1 — Export Project Context Pack</span>
+                  <div className="flex items-center justify-between font-mono bg-slate-950 p-2 rounded text-slate-300 text-[11px]">
+                    <span>curl -s http://127.0.0.1:41661/api/projects/{selectedProject.slug}/knowledge &gt; .botdigit-context.json</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`curl -s http://127.0.0.1:41661/api/projects/${selectedProject.slug}/knowledge > .botdigit-context.json`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="text-indigo-400 hover:text-indigo-300"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                  <span className="font-semibold text-slate-200 block mb-1">Step 2 — Execute with Claude Code or Cursor</span>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Feed <code className="text-indigo-400">.botdigit-context.json</code> to your local Claude Code or Cursor session. Local agents will operate with full project awareness without uploading your proprietary code.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Decisions Memory */}
         {activeTab === 'decisions' && (
           <div className="max-w-4xl mx-auto space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -1048,7 +1343,10 @@ export default function CouncilPlatform() {
                       🟡 {d.status.replace('_', ' ').toUpperCase()}
                     </span>
                     <button
-                      onClick={() => handleReopenDecision(d.id)}
+                      onClick={async () => {
+                        await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/decisions/${d.id}/reopen`, { method: 'POST' });
+                        handleSelectProject(selectedProject);
+                      }}
                       className="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
                     >
                       Reopen Review
@@ -1075,7 +1373,7 @@ export default function CouncilPlatform() {
           </div>
         )}
 
-        {/* Tab 3: Tasks & GitHub */}
+        {/* Tab 5: Tasks & GitHub */}
         {activeTab === 'tasks' && (
           <div className="max-w-4xl mx-auto space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -1132,7 +1430,7 @@ export default function CouncilPlatform() {
           </div>
         )}
 
-        {/* Tab 4: Project Health */}
+        {/* Tab 6: Project Health */}
         {activeTab === 'health' && (
           <div className="max-w-4xl mx-auto space-y-6">
             <div>
@@ -1198,7 +1496,7 @@ export default function CouncilPlatform() {
           </div>
         )}
 
-        {/* Tab 5: Session Archive (Council History) */}
+        {/* Tab 7: Session Archive (Council History) */}
         {activeTab === 'history' && (
           <div className="max-w-4xl mx-auto space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -1288,7 +1586,252 @@ export default function CouncilPlatform() {
         </div>
       )}
 
-      {/* MODAL 2: Project Creation Wizard */}
+      {/* MODAL 2: Agency Agent Local Run & Detail Modal */}
+      {selectedAgencyAgent && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-[#0b1020] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{selectedAgencyAgent.avatar}</span>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    {selectedAgencyAgent.name}
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                      {selectedAgencyAgent.division}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Source: <span className="font-mono text-indigo-400">Agency Agents (MIT License)</span>
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedAgencyAgent(null)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Privacy Notice Banner */}
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-400 flex items-center gap-2">
+              <Shield className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span>
+                <strong>Privacy Guaranteed:</strong> Running locally keeps your source code and API keys on your machine. BotDigit does not execute this agent on its servers.
+              </span>
+            </div>
+
+            {/* Local Tool Tabs */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                {[
+                  { id: 'claude_code', label: 'Claude Code' },
+                  { id: 'cursor', label: 'Cursor Rules (.mdc)' },
+                  { id: 'gemini_cli', label: 'Gemini CLI' },
+                  { id: 'opencode', label: 'OpenCode' },
+                ].map((tool) => (
+                  <button
+                    key={tool.id}
+                    onClick={() => setLocalToolTab(tool.id as any)}
+                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                      localToolTab === tool.id
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-900 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {tool.label}
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <span className="text-xs font-semibold text-slate-300 block mb-1.5">Local Installation Command:</span>
+                <div className="flex items-center justify-between font-mono bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-indigo-300 overflow-x-auto">
+                  <span>{selectedAgencyAgent.local_install[localToolTab] || selectedAgencyAgent.local_install.claude_code}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedAgencyAgent.local_install[localToolTab] || selectedAgencyAgent.local_install.claude_code);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="text-slate-400 hover:text-white ml-2"
+                  >
+                    {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <ClipboardCopy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Deliverables & Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                <span className="font-semibold text-slate-200 block mb-1.5">Core Responsibilities:</span>
+                <ul className="space-y-1 text-slate-400 text-[11px]">
+                  {selectedAgencyAgent.responsibilities.slice(0, 3).map((r, i) => (
+                    <li key={i}>• {r}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                <span className="font-semibold text-slate-200 block mb-1.5">Success Metrics:</span>
+                <ul className="space-y-1 text-emerald-400/90 text-[11px]">
+                  {selectedAgencyAgent.success_metrics.slice(0, 3).map((m, i) => (
+                    <li key={i}>✓ {m}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-between pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setSelectedAgencyAgent(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => handleAttachAgent(selectedAgencyAgent.id)}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add to {selectedProject.name} AI Team</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Clickable Multi-Modal Evidence Drawer */}
+      {evidenceDrawerOpen && activeEvidence && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end">
+          <div className="w-full max-w-lg bg-[#0b1020] border-l border-slate-800 h-full p-6 flex flex-col gap-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2 text-white font-bold text-sm">
+                <Code2 className="w-4 h-4 text-indigo-400" />
+                <span>Multi-Modal Source Evidence</span>
+              </div>
+              <button onClick={() => setEvidenceDrawerOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                <span className="text-[11px] text-slate-400 block mb-1">Source Origin & Reference</span>
+                <span className="font-mono text-indigo-400 font-semibold">{activeEvidence.evidence_ref || 'Unknown'}</span>
+              </div>
+
+              <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800">
+                <div>
+                  <span className="text-[11px] text-slate-400 block mb-0.5">Evidence Confidence</span>
+                  <span className="text-emerald-400 font-bold font-mono">
+                    Strength: {activeEvidence.evidence_strength || 'HIGH'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 text-right">
+                  <span>Rule: Direct Source + Verified</span>
+                </div>
+              </div>
+
+              {activeEvidence.evidence_snippet && (
+                <div>
+                  <span className="text-slate-300 font-semibold block mb-1.5">Captured Code / Document Excerpt:</span>
+                  <pre className="bg-[#050811] p-3 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap">
+                    {activeEvidence.evidence_snippet}
+                  </pre>
+                </div>
+              )}
+
+              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-slate-400 text-[11px] leading-relaxed">
+                Statement attributed to <strong className="text-slate-200">{activeEvidence.title}</strong> using model <strong className="text-slate-200">{activeEvidence.model}</strong>.
+              </div>
+
+              <a
+                href={selectedProject.github_repo_url || '#'}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center justify-center gap-2 transition"
+              >
+                <GitBranch className="w-4 h-4" />
+                <span>Open in GitHub Repository</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Sanitized Public Publication Modal */}
+      {publishModalOpen && selectedSession && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#0b1020] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-indigo-400" />
+                  Publish Council Session to Public Profile
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Sanitization gatekeeper: selectively approve public visibility.
+                </p>
+              </div>
+              <button onClick={() => setPublishModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <span className="font-semibold text-slate-300 block mb-1">Publish Checklist:</span>
+
+              {[
+                { key: 'question', label: 'Council Question & Topic' },
+                { key: 'summary', label: 'Final Consensus Summary' },
+                { key: 'perspectives', label: 'Agent Perspectives & Stances' },
+                { key: 'disagreements', label: 'Key Disagreements & Debates' },
+                { key: 'decision', label: 'Strategic Decision & Verdict' },
+                { key: 'action_plan', label: 'Public Action Plan' },
+                { key: 'source_code', label: 'Source Code References (Sensitive)' },
+                { key: 'private_evidence', label: 'Private Evidence Logs' },
+                { key: 'internal_docs', label: 'Internal Financial & Roadmaps' },
+              ].map((item) => (
+                <label key={item.key} className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-900 border border-slate-800 cursor-pointer hover:bg-slate-800/60 transition">
+                  <input
+                    type="checkbox"
+                    checked={(publishSections as any)[item.key]}
+                    onChange={(e) =>
+                      setPublishSections((prev) => ({
+                        ...prev,
+                        [item.key]: e.target.checked,
+                      }))
+                    }
+                    className="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0"
+                  />
+                  <span className={`text-xs ${(publishSections as any)[item.key] ? 'text-slate-200' : 'text-slate-500'}`}>
+                    {item.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-between pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setPublishModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
+              >
+                Keep Private
+              </button>
+              <button
+                onClick={handlePublishSession}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Publish Sanitized Session</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Project Creation Wizard */}
       {wizardOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-xl bg-[#0b1020] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-5">
@@ -1394,22 +1937,6 @@ export default function CouncilPlatform() {
                     placeholder="https://example.com"
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
                   />
-                  {wizardForm.project_type === 'web_saas' && (
-                    <span className="text-[11px] text-amber-400 mt-1 block">
-                      Required for Web/SaaS so agents can crawl sitemaps, inspect robots.txt, and verify SEO.
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <label className="font-semibold text-slate-300 block mb-1">Staging URL (Optional)</label>
-                  <input
-                    type="url"
-                    value={wizardForm.staging_url}
-                    onChange={(e) => setWizardForm((prev) => ({ ...prev, staging_url: e.target.value }))}
-                    placeholder="https://staging.example.com"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
-                  />
                 </div>
 
                 <div className="flex justify-between pt-2">
@@ -1455,10 +1982,6 @@ export default function CouncilPlatform() {
                     <option value="aivex/protocol">aivex/protocol</option>
                     <option value="custom/repo">custom/repo</option>
                   </select>
-
-                  <div className="text-[11px] text-slate-400 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-                    <div>Once connected, agents index commits, code modules, issues, and PRs automatically.</div>
-                  </div>
                 </div>
 
                 <div className="flex justify-between pt-2">
@@ -1482,138 +2005,7 @@ export default function CouncilPlatform() {
         </div>
       )}
 
-      {/* MODAL 3: Clickable Evidence Drawer */}
-      {evidenceDrawerOpen && activeEvidence && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end">
-          <div className="w-full max-w-lg bg-[#0b1020] border-l border-slate-800 h-full p-6 flex flex-col gap-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2 text-white font-bold text-sm">
-                <Code2 className="w-4 h-4 text-indigo-400" />
-                <span>Verified Source Evidence</span>
-              </div>
-              <button onClick={() => setEvidenceDrawerOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
-                <span className="text-[11px] text-slate-400 block mb-1">Source Origin</span>
-                <span className="font-mono text-indigo-400 font-semibold">{activeEvidence.evidence_ref || 'Unknown'}</span>
-              </div>
-
-              <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800">
-                <div>
-                  <span className="text-[11px] text-slate-400 block mb-0.5">Evidence Confidence</span>
-                  <span className="text-emerald-400 font-bold font-mono">
-                    Strength: {activeEvidence.evidence_strength || 'HIGH'}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400 text-right">
-                  <span>Rule: Direct Source + Reproducible</span>
-                </div>
-              </div>
-
-              {activeEvidence.evidence_snippet && (
-                <div>
-                  <span className="text-slate-300 font-semibold block mb-1.5">Captured Code Excerpt:</span>
-                  <pre className="bg-[#050811] p-3 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap">
-                    {activeEvidence.evidence_snippet}
-                  </pre>
-                </div>
-              )}
-
-              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-slate-400 text-[11px] leading-relaxed">
-                Statement attributed to <strong className="text-slate-200">{activeEvidence.title}</strong> using <strong className="text-slate-200">{activeEvidence.model}</strong>.
-              </div>
-
-              <a
-                href={selectedProject.github_repo_url || '#'}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center justify-center gap-2 transition"
-              >
-                <GitBranch className="w-4 h-4" />
-                <span>Open in GitHub Repository</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 4: Sanitized Public Publication Modal */}
-      {publishModalOpen && selectedSession && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#0b1020] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Share2 className="w-4 h-4 text-indigo-400" />
-                  Publish Council Session to Public Profile
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Sanitization gatekeeper: selectively approve public visibility.
-                </p>
-              </div>
-              <button onClick={() => setPublishModalOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2 text-xs">
-              <span className="font-semibold text-slate-300 block mb-1">Publish Checklist:</span>
-
-              {[
-                { key: 'question', label: 'Council Question & Topic' },
-                { key: 'summary', label: 'Final Consensus Summary' },
-                { key: 'perspectives', label: 'Agent Perspectives & Stances' },
-                { key: 'disagreements', label: 'Key Disagreements & Debates' },
-                { key: 'decision', label: 'Strategic Decision & Verdict' },
-                { key: 'action_plan', label: 'Public Action Plan' },
-                { key: 'source_code', label: 'Source Code References (Sensitive)' },
-                { key: 'private_evidence', label: 'Private Evidence Logs' },
-                { key: 'internal_docs', label: 'Internal Financial & Roadmaps' },
-              ].map((item) => (
-                <label key={item.key} className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-900 border border-slate-800 cursor-pointer hover:bg-slate-800/60 transition">
-                  <input
-                    type="checkbox"
-                    checked={(publishSections as any)[item.key]}
-                    onChange={(e) =>
-                      setPublishSections((prev) => ({
-                        ...prev,
-                        [item.key]: e.target.checked,
-                      }))
-                    }
-                    className="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0"
-                  />
-                  <span className={`text-xs ${(publishSections as any)[item.key] ? 'text-slate-200' : 'text-slate-500'}`}>
-                    {item.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            <div className="flex justify-between pt-3 border-t border-slate-800">
-              <button
-                onClick={() => setPublishModalOpen(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
-              >
-                Keep Private
-              </button>
-              <button
-                onClick={handlePublishSession}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span>Publish Sanitized Session</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 5: Domain Verification Modal */}
+      {/* MODAL 6: Domain Verification Modal */}
       {domainModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[#0b1020] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-4">
