@@ -191,6 +191,17 @@ interface AgentPackItem {
   deliverable: string;
 }
 
+interface VisualEvidenceItem {
+  id: string;
+  title: string;
+  category: string;
+  file_url: string;
+  analysis: string;
+  is_public: boolean;
+  tags: string[];
+  created_at: string;
+}
+
 const SUGGESTED_QUESTIONS = [
   'Review project architecture',
   'Should we launch?',
@@ -204,7 +215,7 @@ export default function CouncilPlatform() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'council' | 'library' | 'bridge' | 'decisions' | 'tasks' | 'health' | 'history'>('council');
+  const [activeTab, setActiveTab] = useState<'council' | 'library' | 'bridge' | 'decisions' | 'tasks' | 'health' | 'history' | 'visual'>('council');
 
   // Council Sessions State
   const [sessions, setSessions] = useState<CouncilSession[]>([]);
@@ -227,6 +238,14 @@ export default function CouncilPlatform() {
   const [decisions, setDecisions] = useState<DecisionItem[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [unresolvedQuestions, setUnresolvedQuestions] = useState<UnresolvedQuestion[]>([]);
+
+  // Visual Evidence State
+  const [visualEvidences, setVisualEvidences] = useState<VisualEvidenceItem[]>([]);
+  const [visualUploadModalOpen, setVisualUploadModalOpen] = useState(false);
+  const [newVisualTitle, setNewVisualTitle] = useState('');
+  const [newVisualCategory, setNewVisualCategory] = useState('ui_screenshot');
+  const [newVisualUrl, setNewVisualUrl] = useState('');
+  const [newVisualAnalysis, setNewVisualAnalysis] = useState('');
 
   // Modals & Drawers
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
@@ -331,8 +350,46 @@ export default function CouncilPlatform() {
         setTasks(pData.tasks || []);
         setUnresolvedQuestions(pData.unresolved_questions || []);
       }
+
+      // Fetch Visual Evidence
+      const vRes = await fetch(`http://127.0.0.1:41661/api/projects/${project.id}/evidence/visual`);
+      if (vRes.ok) {
+        const vData = await vRes.json();
+        setVisualEvidences(vData.visual_evidence || []);
+      }
     } catch (err) {
       console.error('Error loading project state:', err);
+    }
+  };
+
+  // Helper: Upload Visual Evidence
+  const handleUploadVisualEvidence = async () => {
+    if (!selectedProject || !newVisualTitle.trim() || !newVisualUrl.trim()) return;
+    try {
+      const res = await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/evidence/visual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newVisualTitle,
+          category: newVisualCategory,
+          file_url: newVisualUrl,
+          analysis: newVisualAnalysis || null,
+          is_public: true,
+        }),
+      });
+      if (res.ok) {
+        setVisualUploadModalOpen(false);
+        setNewVisualTitle('');
+        setNewVisualUrl('');
+        setNewVisualAnalysis('');
+        const vRes = await fetch(`http://127.0.0.1:41661/api/projects/${selectedProject.id}/evidence/visual`);
+        if (vRes.ok) {
+          const vData = await vRes.json();
+          setVisualEvidences(vData.visual_evidence || []);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to upload visual evidence:', err);
     }
   };
 
@@ -678,6 +735,17 @@ export default function CouncilPlatform() {
             <span>{selectedProject.github_repo_full_name || 'GitHub'}</span>
             <ExternalLink className="w-3 h-3 text-slate-500" />
           </a>
+
+          {/* Public Airgap Profile Link */}
+          <a
+            href={`/p/${selectedProject.slug}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition font-medium"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>Public Profile ↗</span>
+          </a>
         </div>
       </header>
 
@@ -716,6 +784,7 @@ export default function CouncilPlatform() {
             {(
               [
                 { id: 'council', label: 'Council Room', icon: Sparkles },
+                { id: 'visual', label: 'Visual Proof', icon: ImageIcon },
                 { id: 'library', label: 'Agency Agent Library', icon: Users },
                 { id: 'bridge', label: 'Local Bridge (Privacy)', icon: Laptop },
                 { id: 'decisions', label: 'Decisions Memory', icon: BookOpen },
@@ -1430,6 +1499,92 @@ export default function CouncilPlatform() {
           </div>
         )}
 
+        {/* Tab: Visual Proof & Inspection Gallery */}
+        {activeTab === 'visual' && (
+          <div className="max-w-5xl mx-auto space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-indigo-400" />
+                  Visual Proof & Multimodal Evidence Ingestion
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  UI screenshots, architectural schematics, terminal traces, and visual proof analyzed by the council.
+                </p>
+              </div>
+              <button
+                onClick={() => setVisualUploadModalOpen(true)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center gap-1.5 transition shadow-lg shadow-indigo-600/20"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Attach Visual Evidence</span>
+              </button>
+            </div>
+
+            {visualEvidences.length === 0 ? (
+              <div className="p-12 rounded-2xl bg-[#0b1020] border border-slate-800 text-center space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-slate-900 mx-auto flex items-center justify-center text-2xl border border-slate-800">
+                  🖼️
+                </div>
+                <h4 className="text-sm font-semibold text-white">No Visual Evidence Attached Yet</h4>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Provide UI screenshots, UX wireframes, system diagrams, or runtime error captures for multimodal council inspection.
+                </p>
+                <button
+                  onClick={() => setVisualUploadModalOpen(true)}
+                  className="text-xs px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition"
+                >
+                  Upload First Capture
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {visualEvidences.map((ve) => (
+                  <div
+                    key={ve.id}
+                    className="bg-[#0b1020] border border-slate-800 rounded-2xl overflow-hidden group hover:border-slate-700 transition flex flex-col"
+                  >
+                    <div className="h-48 bg-slate-950 overflow-hidden relative border-b border-slate-800">
+                      <img
+                        src={ve.file_url}
+                        alt={ve.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      />
+                      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-black/70 backdrop-blur-md text-slate-300 border border-white/10">
+                          {ve.category.replace('_', ' ')}
+                        </span>
+                        {ve.is_public && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            Public
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                      <div className="space-y-1.5">
+                        <h4 className="text-sm font-bold text-white">{ve.title}</h4>
+                        <p className="text-xs text-slate-300 leading-relaxed">{ve.analysis}</p>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                        <div className="flex items-center gap-1">
+                          {ve.tags.map((tag) => (
+                            <span key={tag} className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                        <span>{ve.created_at ? ve.created_at.slice(0, 10) : 'Active'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tab 6: Project Health */}
         {activeTab === 'health' && (
           <div className="max-w-4xl mx-auto space-y-6">
@@ -2050,6 +2205,90 @@ export default function CouncilPlatform() {
                   Verify Domain Ownership
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Visual Upload Modal */}
+      {visualUploadModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0b1020] border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-indigo-400" />
+                Attach Visual Evidence to Project
+              </h3>
+              <button
+                onClick={() => setVisualUploadModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-300 mb-1 font-medium">Evidence Title</label>
+                <input
+                  type="text"
+                  value={newVisualTitle}
+                  onChange={(e) => setNewVisualTitle(e.target.value)}
+                  placeholder="e.g. Checkout Funnel Latency Waterfall"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 mb-1 font-medium">Category</label>
+                <select
+                  value={newVisualCategory}
+                  onChange={(e) => setNewVisualCategory(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-indigo-500"
+                >
+                  <option value="ui_screenshot">UI Screenshot</option>
+                  <option value="architecture_diagram">Architecture Diagram</option>
+                  <option value="terminal_output">Terminal / Test Trace</option>
+                  <option value="error_log">Error Visual Inspection</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 mb-1 font-medium">Image / Asset URL</label>
+                <input
+                  type="text"
+                  value={newVisualUrl}
+                  onChange={(e) => setNewVisualUrl(e.target.value)}
+                  placeholder="https://... or data:image/png;base64,..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 mb-1 font-medium">Observation / Council Notes (Optional)</label>
+                <textarea
+                  value={newVisualAnalysis}
+                  onChange={(e) => setNewVisualAnalysis(e.target.value)}
+                  placeholder="Add notes for council specialists to review..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-indigo-500 h-20 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setVisualUploadModalOpen(false)}
+                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadVisualEvidence}
+                disabled={!newVisualTitle.trim() || !newVisualUrl.trim()}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold"
+              >
+                Ingest Evidence
+              </button>
             </div>
           </div>
         </div>

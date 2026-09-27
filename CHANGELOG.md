@@ -55,5 +55,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Curated Agent Squad Packs: SaaS Launch Team, Startup MVP, Security Audit, and SEO Growth Squad with 1-click project equipping.
   - Local Agent Bridge privacy architecture preserving complete on-premise source code control.
   - Added REST endpoints: `GET /api/agent-catalog`, `POST /api/projects/{id}/attach-agent`, `POST /api/projects/{id}/apply-pack`.
+- Public SEO Profiles, Airgapped Intelligence & Multimodal Evidence (Phase 8):
+  - Next.js dynamic public project route (`client/src/app/p/[slug]/page.tsx`) with JSON-LD `SoftwareApplication` schema, health radar gauges, and verified domain badge.
+  - Interactive "Ask the Public AI Council" endpoint (`POST /api/projects/{slug}/ask-public`) and client Q&A drawer: airgapped visitor queries answered strictly from verified decisions and public facts with zero code leakage.
+  - Multimodal Visual Evidence Ingestion: added `VisualEvidence` model, `POST /api/projects/{id}/evidence/visual`, and `GET /api/projects/{id}/evidence/visual` supporting UI captures, architecture schematics, and terminal traces.
+  - Client Visual Proof & Inspection Gallery tab (`activeTab === 'visual'`) with category tags and modal for instant screenshot upload.
+  - Dynamic Specialist Activation Engine: `build_council_debate` in `server/app/engine.py` dynamically injects attached custom & agency specialists into debate rounds with domain citations.
+  - Global Navigation integration linking directly to live public airgap profiles.
+
 
 

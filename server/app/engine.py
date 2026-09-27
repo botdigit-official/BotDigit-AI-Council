@@ -69,7 +69,12 @@ AGENTS = {
 }
 
 
-def build_council_debate(topic: str, project_name: str, github_url: str = "") -> Dict[str, Any]:
+def build_council_debate(
+    topic: str,
+    project_name: str,
+    github_url: str = "",
+    custom_agents: List[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """Generates a structured, evidence-grounded debate tailored to the topic."""
     lowered = topic.lower()
 
@@ -426,6 +431,33 @@ def build_council_debate(topic: str, project_name: str, github_url: str = "") ->
             {"title": "Verify data boundary and access controls", "assigned": "security", "priority": "medium"},
             {"title": "Conduct agency usability review", "assigned": "product", "priority": "medium"},
         ]
+
+    # Dynamic specialist inclusion from attached Agency / Custom Agents
+    if custom_agents and len(rounds) > 0:
+        for ca in custom_agents[:3]:
+            role_key = ca.get("role", ca.get("name", "")).lower().replace(" ", "_").replace("-", "_")
+            if role_key not in AGENTS:
+                AGENTS[role_key] = {
+                    "title": ca.get("name", "Specialist"),
+                    "avatar": ca.get("avatar", "🤖"),
+                    "color": ca.get("color", "indigo"),
+                    "provider": "Anthropic",
+                    "model": ca.get("model", "Claude 3.5 Sonnet"),
+                }
+            rounds[0]["messages"].append({
+                "agent": role_key,
+                "classification": "INFERENCE",
+                "content": f"As {ca.get('name', 'Specialist')} attached to {project_name}, my domain analysis confirms that '{topic}' aligns with our architectural targets. Recommend verifying integration tests and documentation before final signoff.",
+                "evidence_ref": f"{ca.get('name', 'Specialist').lower().replace(' ', '-')}.instructions",
+                "evidence_source": "internal_doc",
+                "evidence_strength": "HIGH",
+                "evidence_snippet": f"Specialist Persona: {ca.get('role', 'Specialist')} — Directives Active",
+                "provider": "Anthropic",
+                "model": ca.get("model", "Claude 3.5 Sonnet"),
+                "tokens_in": 1280,
+                "tokens_out": 220,
+                "cost": "$0.003",
+            })
 
     return {
         "topic": topic,

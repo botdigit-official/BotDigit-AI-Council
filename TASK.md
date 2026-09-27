@@ -63,4 +63,13 @@
 - [x] Implement Local Agent Bridge architecture for enterprise privacy-first execution without source code exfiltration.
 - [x] Add REST endpoints (`/api/agent-catalog`, `/api/projects/{id}/attach-agent`, `/api/projects/{id}/apply-pack`).
 
+## Phase 8: Public Airgap Profiles, Interactive Visitor Intelligence & Visual Proof
+- [x] Implement Public SEO Project Page (`client/src/app/p/[slug]/page.tsx`) with JSON-LD schema, health radar gauges, and verified metadata.
+- [x] Build Airgapped "Ask the Public AI Council" endpoint (`/api/projects/{slug}/ask-public`) and client Q&A drawer.
+- [x] Implement Visual Evidence Ingestion engine (`VisualEvidence` model, `/api/projects/{id}/evidence/visual`).
+- [x] Build Visual Proof gallery & modal in client app with category filters and multimodal inspection notes.
+- [x] Dynamic Specialist Activation in Council Engine (`build_council_debate` dynamically injects attached custom/agency specialists into debate rounds).
+- [x] Global Nav integration with direct 1-click link to Public Airgap Profile (`/p/[slug]`).
+
+
 

@@ -79,6 +79,7 @@ class Project(Base):
     tasks = relationship("ProjectTask", back_populates="project", cascade="all, delete-orphan")
     unresolved_questions = relationship("UnresolvedQuestion", back_populates="project", cascade="all, delete-orphan")
     custom_agents = relationship("CustomAgent", back_populates="project", cascade="all, delete-orphan")
+    visual_evidences = relationship("VisualEvidence", back_populates="project", cascade="all, delete-orphan")
 
 
 class ProjectFact(Base):
@@ -223,4 +224,21 @@ class CustomAgent(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
     project = relationship("Project", back_populates="custom_agents")
+
+
+class VisualEvidence(Base):
+    __tablename__ = "visual_evidence"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    project_id = Column(String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(String(36), nullable=True)  # Associated council session if any
+    title = Column(String(255), nullable=False)
+    category = Column(String(50), default="ui_screenshot")  # ui_screenshot, architecture_diagram, terminal_output, error_log
+    file_url = Column(Text, nullable=False)  # Data URI or image asset path
+    analysis = Column(Text, nullable=True)  # AI Council visual inspection / observation
+    is_public = Column(Boolean, default=True)  # Sanitized for public airgap profiles
+    tags = Column(JSON, default=list)  # ["ui", "mobile", "auth", "checkout"]
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+    project = relationship("Project", back_populates="visual_evidences")
 
