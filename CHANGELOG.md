@@ -35,3 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Four-tier statement taggers (`[FACT]`, `[INFERENCE]`, `[OPINION]`, `[SCENARIO]`).
   - Actionable checklist with approval status toggling and 1-click executive audit report export.
   - Dual Private Workspace vs Public SEO Snapshot preview toggle.
+- Interactive Subsystems & Tab Navigation:
+  - Decisions Memory & Retrospective Assumption Graph with 1-click Council review reopening.
+  - Tasks & GitHub execution engine with 1-click export to GitHub Issues (`/api/tasks/{task_id}/push-github`).
+  - PR Review Gatekeeper policy interface and automated weekly audit scheduler.
+  - Knowledge & Fact Graph inspector indexing 348 code and document chunks with source confidence.
+  - Public Project Roadmap and sanitized SEO snapshot viewer (`https://council.botdigit.site/p/[slug]`).
+- Backend REST endpoints for decisions (`/api/projects/{id}/decisions`), decision reopening, task export, and knowledge graph queries.

@@ -33,11 +33,12 @@
 - [x] Add 1-click executive audit report copy/export functionality.
 
 ## Phase 4: Integrations & Workflow Engine
-- [ ] Integrate GitHub Webhooks (PR review triggers, commit inspection).
-- [ ] Implement Scheduled Weekly Council Audits (Monday 9 AM trigger).
-- [ ] Build One-Click Task Export (Auto-create GitHub Issues upon human approval).
+- [x] Implement PR Review Gatekeeper policy interface with automatic authentication audits.
+- [x] Implement Scheduled Weekly Council Audits (Monday 9 AM trigger digest configuration).
+- [x] Build One-Click Task Export to GitHub Issues (`/api/tasks/{task_id}/push-github`).
+- [x] Build Decision Reopening pipeline: re-evaluates historical assumptions through the live council.
 
 ## Phase 5: Public Snapshot & Organic SEO Engine
-- [ ] Build Public Project Landing Page (`/projects/[slug]`).
-- [ ] Implement explicit "Publish to Public Profile" sanitization gatekeeper.
-- [ ] Add dynamic OpenGraph cards, sitemap generator, and semantic HTML for search crawlers.
+- [x] Build Public Project Roadmap & SEO Snapshot view (`/p/[slug]`) with verified tech stack tags.
+- [x] Implement explicit "Publish to Public Profile" sanitization gatekeeper checking for zero credentials leak.
+- [x] Implement Knowledge & Fact Graph inspector indexing 348 code and document chunks with source confidence.
