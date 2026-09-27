@@ -29,3 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pydantic and LangGraph typing engine (`server/app/schemas.py`) with 4-tier statement tagging (`FACT`, `INFERENCE`, `OPINION`, `SCENARIO`).
 - LangGraph cyclical debate state machine (`server/app/graph/debate_graph.py`) with retrospective memory injection.
 - Operational FastAPI backend gateway on port `41661` with async database and SSE live streaming (`/api/debates/{id}/stream`).
+- Next.js 15 client on port `41660` with Tailwind CSS and dark mode tokens:
+  - Live Council debate room with streaming agent avatars, turn badges, and citations.
+  - Project Outlook Diagnostic meters (Technical, Market, Distribution, Operational Risk).
+  - Four-tier statement taggers (`[FACT]`, `[INFERENCE]`, `[OPINION]`, `[SCENARIO]`).
+  - Actionable checklist with approval status toggling and 1-click executive audit report export.
+  - Dual Private Workspace vs Public SEO Snapshot preview toggle.

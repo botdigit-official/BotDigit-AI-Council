@@ -25,10 +25,12 @@
 - [x] Add ADR-004 (Supabase Platform Layer) and ADR-005 (Project Intelligence Graph).
 
 ## Phase 3: Frontend Scaffolding & Live Room UI
-- [ ] Scaffold Next.js application (`client/`) on port `41660`.
-- [ ] Build Live Council debate room with streaming agent speech bubbles and badges (`[FACT]`, `[INFERENCE]`, `[OPINION]`, `[SCENARIO]`).
-- [ ] Build Project Outlook visualization gauges (Technical Readiness, Market Evidence, Risk Index).
-- [ ] Build Decision Memory timeline & Action item approval cards.
+- [x] Scaffold Next.js application (`client/`) on port `41660` with Tailwind CSS & dark mode tokens.
+- [x] Build Live Council debate room with streaming agent speech bubbles and badges (`[FACT]`, `[INFERENCE]`, `[OPINION]`, `[SCENARIO]`).
+- [x] Build Project Outlook visualization gauges (Technical Readiness, Market Evidence, Distribution, Operational Risk).
+- [x] Build Decision Memory timeline & Action item approval cards with status toggling.
+- [x] Implement dual Private Workspace vs Public SEO Snapshot preview toggle.
+- [x] Add 1-click executive audit report copy/export functionality.
 
 ## Phase 4: Integrations & Workflow Engine
 - [ ] Integrate GitHub Webhooks (PR review triggers, commit inspection).
