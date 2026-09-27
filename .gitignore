@@ -50,6 +50,7 @@ htmlcov/
 # Database / Storage
 *.sqlite
 *.sqlite3
+*.db
 data/
 storage/
 

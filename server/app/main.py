@@ -153,21 +153,29 @@ async def create_project(payload: ProjectCreateRequest, db: AsyncSession = Depen
     }
 
 
+async def resolve_project(project_id: str, db: AsyncSession) -> Optional[Project]:
+    """Resolves project by ID, slug, or falls back to default first project."""
+    if project_id in ["proj_default", "default", "first"]:
+        result = await db.execute(select(Project).order_by(Project.created_at.asc()).limit(1))
+        return result.scalar_one_or_none()
+    result = await db.execute(select(Project).where((Project.id == project_id) | (Project.slug == project_id)))
+    return result.scalar_one_or_none()
+
+
 @app.get("/api/projects/{project_id}", tags=["Projects"])
 async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
     """Get project details, recent debates, and action items."""
-    result = await db.execute(select(Project).where(Project.id == project_id))
-    project = result.scalar_one_or_none()
+    project = await resolve_project(project_id, db)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
 
     debates_res = await db.execute(
-        select(Debate).where(Debate.project_id == project_id).order_by(Debate.created_at.desc()).limit(5)
+        select(Debate).where(Debate.project_id == project.id).order_by(Debate.created_at.desc()).limit(5)
     )
     debates = debates_res.scalars().all()
 
     tasks_res = await db.execute(
-        select(ProjectTask).where(ProjectTask.project_id == project_id).order_by(ProjectTask.created_at.desc())
+        select(ProjectTask).where(ProjectTask.project_id == project.id).order_by(ProjectTask.created_at.desc())
     )
     tasks = tasks_res.scalars().all()
 
@@ -205,8 +213,7 @@ async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
 @app.post("/api/projects/{project_id}/debates", status_code=status.HTTP_202_ACCEPTED, tags=["Debates"])
 async def trigger_debate(project_id: str, payload: DebateTriggerRequest, db: AsyncSession = Depends(get_db)):
     """Trigger a new structured 6-round multi-agent council debate."""
-    proj_res = await db.execute(select(Project).where(Project.id == project_id))
-    project = proj_res.scalar_one_or_none()
+    project = await resolve_project(project_id, db)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
 
