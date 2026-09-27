@@ -3,67 +3,94 @@
 ## 1. Architectural Philosophy
 
 BotDigit AI Council is designed around four core tenets:
-1. **Logical Workers, Single Runtime**: Avoid microservice fragmentation. Agents are logical execution graphs executed within a unified FastAPI + LangGraph runtime.
-2. **Unified Data Engine**: All relational, vector, and full-text data resides in **PostgreSQL 16 + `pgvector`**.
-3. **Evidence-Grounded Communication**: Agents are prohibited from making ungrounded empirical assertions. Every claim must reference a verified `fact_id`, `commit_sha`, or `doc_id`.
-4. **Human-in-the-Loop Gatekeeping**: Agents propose; humans authorize.
+1. **Supabase as Platform Layer**: PostgreSQL 16 + `pgvector` wrapped in self-hosted Supabase (Auth, Realtime, Storage, PostgREST).
+2. **The Project Intelligence Graph**: Long-term relational memory linking Facts, Evidence, Assumptions, Decisions, Risks, Experiments, Tasks, and Outcomes.
+3. **Evidence-Grounded Communication**: 4-tier statement tagging (`[FACT]`, `[INFERENCE]`, `[OPINION]`, `[SCENARIO]`) with explicit line references.
+4. **Autonomous Closed-Loop Evolution**: Results from real-world execution update project memory and trigger retroactive reviews when assumptions expire or breach thresholds.
 
 ---
 
-## 2. High-Level System Diagram
+## 2. High-Level System Architecture
 
 ```
-                                  USER (Browser)
-                                        │
-                         [41660] Next.js 15 Web Application
-                         (Live Council Room, Visual Gauges)
-                                        │
-                            REST API / SSE Streams
-                                        ▼
-                         [41661] FastAPI Service Gateway
-                   (Auth, Project Context, Rate Limiting)
-                                        │
-                   ┌────────────────────┴────────────────────┐
-                   ▼                                         ▼
-         LangGraph Debate Engine                  Background Task Worker
-     (Cyclical Multi-Agent Graph)               (Celery / Redis Scheduler)
-                   │                                         │
-                   │ • Round 1: Solo Stance                  │ • Monday Weekly Audits
-                   │ • Round 2: Cross-Examination            │ • GitHub Webhook Processor
-                   │ • Round 3: Evidence Check               │ • Continuous Fact Ingestion
-                   │ • Round 4: Moderator Synthesis          │
-                   └────────────────────┬────────────────────┘
-                                        │
-                                        ▼
-                             LiteLLM Multi-Model Proxy
-                  (Claude 3.5 Sonnet, GPT-4o, DeepSeek V3)
-                                        │
-                                        ▼
-                        PostgreSQL 16 + pgvector Database
-                 ┌──────────────────────────────────────────────┐
-                 │ • Relational: projects, users, debates, tasks│
-                 │ • Vector: code chunks, docs, evidence        │
-                 │ • Full-Text: BM25 hybrid search              │
-                 └──────────────────────────────────────────────┘
+                    BOTDIGIT AI COUNCIL
+                           │
+                    Next.js Web App (Port 41660)
+                           │
+                    FastAPI API Layer (Port 41661)
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+        Supabase Platform          LangGraph
+              │                    Agent Runtime
+              │                         │
+       ┌──────┼──────┐          ┌──────┼──────┐
+       │      │      │          │      │      │
+      Auth  Realtime Storage   Product Security Growth
+       │      │      │          QA    SEO    Skeptic
+       └──────┼──────┘
+              │
+       PostgreSQL 16
+          + pgvector
+              │
+    PROJECT INTELLIGENCE GRAPH
+ ┌────────────────────────────────────────────────────────┐
+ │ • Facts          • Evidence          • Assumptions     │
+ │ • Decisions      • Risks             • Experiments     │
+ │ • Tasks          • Outcomes          • Debates         │
+ └────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Communication Patterns
+## 3. The Complete Project Operating Loop
 
-### 1. Real-Time Debate Streaming
-When a debate starts, the client establishes a Server-Sent Events (SSE) connection:
-`GET /api/debates/{debate_id}/stream`
-The server streams:
-- Active agent turn events (`agent_speaking: "security"`).
-- Token-by-token thought and response streaming.
-- Tagged assertions (`[FACT]`, `[INFERENCE]`, `[OPINION]`, `[SCENARIO]`).
-- Evidence attachment badges with clickable line references.
-- Round completion events and final synthesized Project Outlook.
+```
+   CREATE PROJECT
+         ↓
+   CONNECT GITHUB / DOCS / DATA
+         ↓
+   BUILD PROJECT KNOWLEDGE (Chunks + Facts)
+         ↓
+   AI COUNCIL DISCUSSION (Moderator filters 3-5 agents)
+         ↓
+   EVIDENCE AUDIT (Verify facts against repo code)
+         ↓
+   DISAGREEMENT / RED TEAM (Stress test catastrophic edge cases)
+         ↓
+   PROJECT OUTLOOK (Technical, Market, Distribution, Risk)
+         ↓
+   ACTION PLAN (Prioritized tasks drafted)
+         ↓
+   HUMAN APPROVAL (Project owner signs off)
+         ↓
+   AUTOMATED EXECUTION (GitHub Issues, PRs, Webhooks)
+         ↓
+   OBSERVE RESULTS (Metrics, bug counts, registrations)
+         ↓
+   UPDATE PROJECT MEMORY (Record experiment outcomes)
+         ↓
+   REOPEN OLD ASSUMPTIONS (Detect breached or expired thresholds)
+         ↓
+   NEXT COUNCIL SESSION (Cumulative intelligence over time)
+```
 
-### 2. Evidence Ingestion Pipeline
-When a user connects a GitHub repository or uploads project documentation:
-1. **Parser**: `unstructured` parses PDFs/Markdown; PyGithub extracts repository trees, commits, PRs, and issues.
-2. **Chunker**: Code and text are split with syntax-aware semantic chunkers.
-3. **Embedder**: Generates dense embeddings stored in `document_chunks` table via `pgvector`.
-4. **Fact Extractor**: Extracts discrete facts (e.g. *“Authentication handled via Supabase JWT on line 42 of auth.py”*) stored in `project_facts`.
+---
+
+## 4. Subsystem Breakdown
+
+### A. Supabase Platform Layer
+- **Auth**: Multi-tenant organizations with GitHub OAuth, JWT sessions, and granular project RBAC.
+- **Realtime**: PostgreSQL CDC (Change Data Capture) streaming database inserts into client WebSocket channels for instantaneous council room updates.
+- **Storage**: S3-compatible bucket for repository tarballs, uploaded PDF specs, and exported client audit reports.
+- **Database Engine**: PostgreSQL 16 with `pgvector` HNSW indexes for semantic code chunk and past decision retrieval.
+
+### B. Project Intelligence Graph
+A structured node-and-edge model where:
+- Every **Decision** is explicitly anchored to 1+ **Assumptions** and 1+ **Evidence IDs**.
+- Every **Assumption** carries a target validation metric and an expiration trigger.
+- When background telemetry or user input updates an assumption status to `breached` or `expired`, the decision is flagged as `reopened`.
+
+### C. LangGraph Agent Runtime
+- Directed acyclic and cyclical state graphs executing the 6-round evidence debate.
+- Built-in checkpointing enables paused debates awaiting human intervention or external webhook confirmations.

@@ -15,12 +15,14 @@
   - [x] `docs/03-engineering/security.md` (Data boundary & token safety)
 - [x] Record initial release in `CHANGELOG.md`.
 
-## Phase 2: Backend Scaffolding & Engine
-- [ ] Scaffold FastAPI backend (`server/`) on port `41661`.
-- [ ] Implement database migrations (Alembic) for PostgreSQL + `pgvector`.
-- [ ] Implement Agent Core (LangGraph state graph with 5 core agents + Moderator).
-- [ ] Implement Evidence Collector (GitHub repo scanner, Markdown reader, Fact tagger).
-- [ ] Implement SSE endpoint (`/api/debates/{id}/stream`) for real-time live debate room.
+## Phase 2: Backend Scaffolding, Schemas & Engine
+- [x] Scaffold FastAPI backend (`server/`) on port `41661`.
+- [x] Integrate self-hosted Supabase platform architecture and `supabase_schema.sql` (PostgreSQL 16 + `pgvector`).
+- [x] Design and implement Project Intelligence Graph schema (Facts, Evidence, Assumptions, Decisions, Risks, Experiments, Tasks, Outcomes).
+- [x] Define exact Pydantic & LangGraph schemas (`server/app/schemas.py`) with 4-tier statement tags (`FACT`, `INFERENCE`, `OPINION`, `SCENARIO`).
+- [x] Implement LangGraph State Graph pipeline (`server/app/graph/debate_graph.py`) with retrospective memory injection.
+- [x] Implement SSE live streaming endpoint (`/api/debates/{id}/stream`) with event generators.
+- [x] Add ADR-004 (Supabase Platform Layer) and ADR-005 (Project Intelligence Graph).
 
 ## Phase 3: Frontend Scaffolding & Live Room UI
 - [ ] Scaffold Next.js application (`client/`) on port `41660`.

@@ -1,51 +1,39 @@
-# 🗄️ Database & Supabase Platform Schema
+-- ============================================================================
+-- BOTDIGIT AI COUNCIL — SUPABASE & POSTGRESQL 16 SCHEMA
+-- The Project Intelligence Graph DDL
+-- ============================================================================
 
-## 1. Overview
-
-BotDigit AI Council runs on **PostgreSQL 16** with **`pgvector`** within the **Supabase platform layer**.
-
-```sql
--- Core extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "vector";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-```
 
----
-
-## 2. The Project Intelligence Graph DDL
-
-### Projects & Organizations
-```sql
-CREATE TABLE organizations (
+-- 1. Organizations & Projects
+CREATE TABLE IF NOT EXISTS organizations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE projects (
+CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    slug VARCHAR(100) NOT NULL,
+    slug VARCHAR(100) UNIQUE NOT NULL,
     client_name VARCHAR(255) DEFAULT 'Direct Client',
     description TEXT,
     github_repo_url TEXT,
     is_public BOOLEAN DEFAULT FALSE,
     outlook_snapshot JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(org_id, slug)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-```
 
-### Knowledge, Facts & Evidence
-```sql
-CREATE TABLE document_chunks (
+-- 2. Knowledge, Facts & Evidence (Vector + Full-Text)
+CREATE TABLE IF NOT EXISTS document_chunks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    source_type VARCHAR(50) NOT NULL, -- 'github_code', 'readme', 'doc', 'pr', 'issue'
+    source_type VARCHAR(50) NOT NULL,
     source_path TEXT NOT NULL,
     commit_sha VARCHAR(40),
     content TEXT NOT NULL,
@@ -55,35 +43,32 @@ CREATE TABLE document_chunks (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_chunks_project ON document_chunks(project_id);
-CREATE INDEX idx_chunks_embedding ON document_chunks USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_chunks_project ON document_chunks(project_id);
 
-CREATE TABLE project_facts (
+CREATE TABLE IF NOT EXISTS project_facts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     fact_statement TEXT NOT NULL,
     evidence_chunk_id UUID REFERENCES document_chunks(id),
-    verification_status VARCHAR(50) DEFAULT 'verified', -- 'verified', 'disputed', 'stale'
+    verification_status VARCHAR(50) DEFAULT 'verified',
     discovered_by_agent VARCHAR(50),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-```
 
-### Assumptions, Decisions & Risks (The Core Moat)
-```sql
-CREATE TABLE project_assumptions (
+-- 3. Assumptions, Decisions & Risks (The Core Moat)
+CREATE TABLE IF NOT EXISTS project_assumptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     statement TEXT NOT NULL,
-    metric_target JSONB, -- e.g. {"metric": "user_registrations", "target": 100}
+    metric_target JSONB,
     current_metric_value JSONB,
-    status VARCHAR(50) DEFAULT 'active', -- 'active', 'validated', 'breached', 'expired'
+    status VARCHAR(50) DEFAULT 'active', -- active, validated, breached, expired
     expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE project_decisions (
+CREATE TABLE IF NOT EXISTS project_decisions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     debate_id UUID,
@@ -92,26 +77,24 @@ CREATE TABLE project_decisions (
     tradeoffs_accepted TEXT[],
     assumption_ids UUID[],
     evidence_chunk_ids UUID[],
-    status VARCHAR(50) DEFAULT 'active', -- 'active', 'reopened', 'superseded'
+    status VARCHAR(50) DEFAULT 'active', -- active, reopened, superseded
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     reopened_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE project_risks (
+CREATE TABLE IF NOT EXISTS project_risks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     risk_statement TEXT NOT NULL,
-    severity VARCHAR(20) DEFAULT 'medium', -- 'low', 'medium', 'high', 'critical'
+    severity VARCHAR(20) DEFAULT 'medium',
     mitigation_strategy TEXT,
     discovered_by_agent VARCHAR(50) DEFAULT 'skeptic',
-    status VARCHAR(50) DEFAULT 'open', -- 'open', 'mitigated', 'accepted'
+    status VARCHAR(50) DEFAULT 'open',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-```
 
-### Experiments, Tasks & Outcomes
-```sql
-CREATE TABLE project_experiments (
+-- 4. Experiments, Tasks & Outcomes
+CREATE TABLE IF NOT EXISTS project_experiments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     decision_id UUID REFERENCES project_decisions(id),
@@ -120,26 +103,26 @@ CREATE TABLE project_experiments (
     baseline_value NUMERIC,
     target_value NUMERIC,
     actual_outcome_value NUMERIC,
-    status VARCHAR(50) DEFAULT 'running', -- 'draft', 'running', 'concluded'
+    status VARCHAR(50) DEFAULT 'running',
     concluded_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE project_tasks (
+CREATE TABLE IF NOT EXISTS project_tasks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     decision_id UUID REFERENCES project_decisions(id),
     title VARCHAR(255) NOT NULL,
     description TEXT,
     assigned_agent VARCHAR(50),
-    priority VARCHAR(20) DEFAULT 'high', -- 'low', 'medium', 'high', 'critical'
+    priority VARCHAR(20) DEFAULT 'high',
     github_issue_number INT,
-    status VARCHAR(50) DEFAULT 'proposed', -- 'proposed', 'approved', 'in_progress', 'done'
+    status VARCHAR(50) DEFAULT 'proposed',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE project_outcomes (
+CREATE TABLE IF NOT EXISTS project_outcomes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     task_id UUID REFERENCES project_tasks(id),
@@ -149,11 +132,9 @@ CREATE TABLE project_outcomes (
     caused_assumption_reopening BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-```
 
-### Debates & Realtime Streaming Messages
-```sql
-CREATE TABLE debates (
+-- 5. Debates & Streaming Messages
+CREATE TABLE IF NOT EXISTS debates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     topic TEXT NOT NULL,
@@ -164,7 +145,7 @@ CREATE TABLE debates (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE debate_messages (
+CREATE TABLE IF NOT EXISTS debate_messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     debate_id UUID NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
     round_number INT NOT NULL,
@@ -177,15 +158,8 @@ CREATE TABLE debate_messages (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable Supabase Realtime publication for live message streaming
-ALTER PUBLICATION supabase_realtime ADD TABLE debate_messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE project_assumptions;
-ALTER PUBLICATION supabase_realtime ADD TABLE project_tasks;
-```
-
-### Public Layer Airgap
-```sql
-CREATE TABLE public_snapshots (
+-- 6. Public Layer Airgap
+CREATE TABLE IF NOT EXISTS public_snapshots (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     public_slug VARCHAR(120) UNIQUE NOT NULL,
@@ -196,8 +170,3 @@ CREATE TABLE public_snapshots (
     published_discussions JSONB DEFAULT '[]'::jsonb,
     sanitized_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Row-Level Security: Public can ONLY read published snapshots
-ALTER TABLE public_snapshots ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Read Access" ON public_snapshots FOR SELECT USING (true);
-```
